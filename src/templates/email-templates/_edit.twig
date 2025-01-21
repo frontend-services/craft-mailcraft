@@ -1,0 +1,249 @@
+{% do view.registerAssetBundle("frontendservices\\mailcraft\\assetbundles\\emailtemplateeditor\\EmailTemplateEditorAsset") %}
+
+{% set mailCraftEditorSettings = {
+    templateId: emailTemplate.id,
+} %}
+
+{% js %}
+    window.mailCraftEditorSettings = {{ mailCraftEditorSettings|json_encode|raw }};
+{% endjs %}
+
+{% set title = emailTemplate.title ?: "New Email Template"|t('mailcraft') %}
+{% set selectedSubnavItem = 'mailcraft' %}
+
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set fullPageForm = true %}
+
+{% block content %}
+    {% if not currentUser.can('mailcraft:manageEmailTemplates') %}
+        {% exit 403 %}
+    {% endif %}
+
+    <div id="mailcraft-form">
+        <div class="flex-fields">
+            {{ actionInput('mailcraft/email-templates/save') }}
+            {{ redirectInput('mailcraft') }}
+            {% if emailTemplate.id %}{{ hiddenInput('templateId', emailTemplate.id) }}{% endif %}
+
+            {% if not emailTemplate.id %}
+                {{ forms.selectField({
+                    label: "Start with Example"|t('mailcraft'),
+                    instructions: "Choose a template example to start with"|t('mailcraft'),
+                    id: 'example-selector',
+                    name: 'example',
+                    options: [
+                        { value: '', label: 'Select an example...' },
+                        { value: 'user_welcome', label: 'Welcome Email' },
+                        { value: 'verify_email', label: 'Email Verification' },
+                        { value: 'new_entry', label: 'New Entry Notification' },
+                        { value: 'order_complete', label: 'Order Confirmation' },
+                        { value: 'order_status', label: 'Order Status Update' },
+                        { value: 'password_reset', label: 'Password Reset' }
+                    ]
+                }) }}
+            {% endif %}
+
+            {{ forms.textField({
+                first: true,
+                label: "Title"|t('mailcraft'),
+                instructions: "Internal name for this email template"|t('mailcraft'),
+                id: 'title',
+                name: 'title',
+                value: emailTemplate.title,
+                errors: emailTemplate.getErrors('title'),
+                autofocus: true,
+                required: true,
+            }) }}
+
+            {{ forms.textField({
+                label: "Subject"|t('mailcraft'),
+                instructions: "Email subject line"|t('mailcraft'),
+                id: 'subject',
+                name: 'subject',
+                value: emailTemplate.subject,
+                errors: emailTemplate.getErrors('subject'),
+                required: true,
+            }) }}
+
+            {{ forms.selectizeField({
+                label: "Event"|t('mailcraft'),
+                instructions: "When should this email be sent"|t('mailcraft'),
+                id: 'event',
+                name: 'event',
+                value: emailTemplate.event,
+                options: craft.mailCraft.getAvailableEventsForOptions(),
+                errors: emailTemplate.getErrors('event'),
+                required: true,
+            }) }}
+
+            {{ forms.textField({
+                label: "Delay"|t('mailcraft'),
+                instructions: "Delay in seconds before sending the email. For example send an email 2 days after user registers."|t('mailcraft'),
+                id: 'delay',
+                name: 'delay',
+                type: 'number',
+                value: emailTemplate.delay,
+                errors: emailTemplate.getErrors('delay'),
+                disabled: not craft.mailCraft.isPro(),
+            }) }}
+            <div class="pro-feature">
+                <div class="timepicker">
+                    {# create buttons for automatic adding of some standard times, and insert time to field above on click #}
+                    <button type="button" class="btn small" data-time="0"{{ not craft.mailCraft.isPro() ? " disabled" }}>Instantly</button>
+                    <button type="button" class="btn small" data-time="3600"{{ not craft.mailCraft.isPro() ? " disabled" }}>1 Hour</button>
+                    <button type="button" class="btn small" data-time="86400"{{ not craft.mailCraft.isPro() ? " disabled" }}>1 Day</button>
+                    <button type="button" class="btn small" data-time="604800"{{ not craft.mailCraft.isPro() ? " disabled" }}>1 Week</button>
+                    <button type="button" class="btn small" data-time="2592000"{{ not craft.mailCraft.isPro() ? " disabled" }}>1 Month</button>
+
+                    <script>
+                        document.querySelectorAll('.timepicker button').forEach(function(button) {
+                            button.addEventListener('click', function() {
+                                document.getElementById('delay').value = parseInt(this.getAttribute('data-time'));
+                            });
+                        });
+                    </script>
+                </div>
+            </div>
+
+            {{ forms.textField({
+                label: "To"|t('mailcraft'),
+                instructions: "Recipient email address"|t('mailcraft'),
+                id: 'to',
+                name: 'to',
+                value: emailTemplate.to,
+                placeholder: 'test@test.com',
+                errors: emailTemplate.getErrors('to'),
+                required: true,
+            }) }}
+
+            {{ forms.textField({
+                label: "To Name"|t('mailcraft'),
+                id: 'toName',
+                name: 'toName',
+                value: emailTemplate.toName,
+                errors: emailTemplate.getErrors('toName'),
+            }) }}
+
+            {{ forms.textField({
+                label: "CC"|t('mailcraft'),
+                id: 'cc',
+                name: 'cc',
+                value: emailTemplate.cc,
+                errors: emailTemplate.getErrors('cc'),
+                disabled: not craft.mailCraft.isPro(),
+            }) }}
+
+            {{ forms.textField({
+                label: "BCC"|t('mailcraft'),
+                id: 'bcc',
+                name: 'bcc',
+                value: emailTemplate.bcc,
+                errors: emailTemplate.getErrors('bcc'),
+                disabled: not craft.mailCraft.isPro(),
+            }) }}
+
+            {{ forms.textField({
+                label: "From"|t('mailcraft'),
+                id: 'from',
+                name: 'from',
+                value: emailTemplate.from,
+                placeholder: 'test@test.com',
+                errors: emailTemplate.getErrors('from'),
+            }) }}
+
+            {{ forms.textField({
+                label: "From Name"|t('mailcraft'),
+                id: 'fromName',
+                name: 'fromName',
+                value: emailTemplate.fromName,
+                errors: emailTemplate.getErrors('fromName'),
+            }) }}
+
+            {{ forms.textField({
+                label: "Reply To"|t('mailcraft'),
+                id: 'replyTo',
+                name: 'replyTo',
+                value: emailTemplate.replyTo,
+                errors: emailTemplate.getErrors('replyTo'),
+                disabled: not craft.mailCraft.isPro(),
+            }) }}
+
+            {{ craft.mailCraft.templateEditor(emailTemplate)|raw }}
+        </div>
+
+        {# Note for dev environment when Pro is not enabled #}
+        {% if not craft.mailCraft.isPro() and craft.app.env == 'dev' %}
+            <hr/>
+            <div class="warning">
+                <p><strong>[👷‍♂️DEV] Heads up!</strong> All disabled Pro features above are only shown on dev environments. They will be hidden on non-dev environments even on MailCraft Standard edition.</p>
+            </div>
+            <p><a href="{{ url('plugin-store/mailcraft') }}" class="btn">{{ "Upgrade to Pro"|t('mailcraft') }}</a></p>
+        {% endif %}
+
+        <style>
+        #mailcraft-form .field:has(input[disabled]) > *,
+        #mailcraft-form .pro-feature > * {
+            opacity: 0.4;
+        }
+        #mailcraft-form .field:has(input[disabled]),
+        #mailcraft-form .pro-feature {
+            background-color: rgb(255 251 237);
+        }
+        #mailcraft-form .pro-feature {
+            margin-top: -1em;
+        }
+        #mailcraft-form .field:has(input[disabled]):after,
+        #mailcraft-form .pro-feature.banner:after {
+            content: 'PRO';
+            position: absolute;
+            top: 0;
+            right: .7em;
+            font-weight: bold;
+            font-size: xx-large;
+            opacity: 0.1;
+            font-style: italic;
+        }
+        #mailcraft-form [data-attribute="cc"],
+        #mailcraft-form [data-attribute="bcc"],
+        #mailcraft-form [data-attribute="from"],
+        #mailcraft-form [data-attribute="fromName"],
+        #mailcraft-form [data-attribute="to"],
+        #mailcraft-form [data-attribute="toName"]
+        {
+            width: 50% !important;
+        }
+        div#delay-field#delay-field {
+            margin-bottom: 0 !important;
+            padding-bottom: 0.4em !important;
+        }
+        </style>
+    </div>
+
+{% endblock %}
+
+{% block details %}
+    <div class="meta">
+        {{ forms.lightswitchField({
+            label: "Enabled"|t('app'),
+            id: 'enabled',
+            name: 'enabled',
+            on: emailTemplate.enabled,
+        }) }}
+    </div>
+
+    {% if emailTemplate.id %}
+        <hr>
+        <div class="meta read-only">
+            <div class="data">
+                <h5 class="heading">{{ "Created at"|t('app') }}</h5>
+                <div class="value">{{ emailTemplate.dateCreated|datetime('short') }}</div>
+            </div>
+            <div class="data">
+                <h5 class="heading">{{ "Updated at"|t('app') }}</h5>
+                <div class="value">{{ emailTemplate.dateUpdated|datetime('short') }}</div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}

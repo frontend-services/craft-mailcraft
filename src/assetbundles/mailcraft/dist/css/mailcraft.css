@@ -1,0 +1,59 @@
+/* Email Templates Index */
+.elementindex .status.enabled {
+    background-color: #27AB83;
+}
+
+.elementindex .status.disabled {
+    background-color: #939393;
+}
+
+/* Template Editor */
+.template-preview {
+    margin: 24px 0;
+    padding: 24px;
+    border: 1px solid #e3e5e8;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.template-preview iframe {
+    width: 100%;
+    border: none;
+    background: #fff;
+}
+
+/* Upgrade Prompt */
+.upgrade-prompt {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.upgrade-prompt img {
+    margin-bottom: 24px;
+}
+
+.upgrade-prompt ul {
+    list-style: none;
+    margin: 24px 0;
+    padding: 0;
+}
+
+.upgrade-prompt li {
+    margin: 12px 0;
+}
+
+/* Pro Features */
+.pro-feature {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.pro-feature::after {
+    content: 'PRO';
+    font-size: 11px;
+    background: #939393;
+    color: #fff;
+    padding: 2px 4px;
+    border-radius: 3px;
+    margin-left: 8px;
+}

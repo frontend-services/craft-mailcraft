@@ -1,0 +1,48 @@
+{
+  "name": "frontend-services/craft-mailcraft",
+  "description": "Sending transactional emails on various events",
+  "type": "craft-plugin",
+  "license": "proprietary",
+  "support": {
+    "email": "mato@frontend.services",
+    "issues": "https://github.com/frontend-services/craft-mailcraft/issues?state=open",
+    "source": "https://github.com/frontend-services/craft-mailcraft",
+    "docs": "https://github.com/frontend-services/craft-mailcraft",
+    "rss": "https://github.com/frontend-services/craft-mailcraft/releases.atom"
+  },
+  "require": {
+    "php": ">=8.2",
+    "craftcms/cms": "^5.5.0"
+  },
+  "require-dev": {
+    "craftcms/ecs": "dev-main",
+    "craftcms/phpstan": "dev-main"
+  },
+  "autoload": {
+    "psr-4": {
+      "frontendservices\\mailcraft\\": "src/"
+    }
+  },
+  "extra": {
+    "handle": "mailcraft",
+    "name": "MailCraft",
+    "developer": "frontend.services",
+    "documentationUrl": "https://github.com/frontend-services/craft-mailcraft",
+    "class": "frontendservices\\mailcraft\\MailCraft"
+  },
+  "scripts": {
+    "check-cs": "ecs check --ansi",
+    "fix-cs": "ecs check --ansi --fix",
+    "phpstan": "phpstan --memory-limit=1G"
+  },
+  "config": {
+    "sort-packages": true,
+    "platform": {
+      "php": "8.2"
+    },
+    "allow-plugins": {
+      "yiisoft/yii2-composer": true,
+      "craftcms/plugin-installer": true
+    }
+  }
+}

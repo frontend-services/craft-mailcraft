@@ -1,0 +1,19 @@
+{% set title = "Email Templates"|t('mailcraft') %}
+{% extends "_layouts/cp" %}
+
+{% block content %}
+    <div class="upgrade-prompt">
+{#        <img src="{{ resourceUrl('mailcraft/images/upgrade.svg') }}" alt="Upgrade" width="150">#}
+        <h2>{{ "Upgrade to Pro"|t('mailcraft') }}</h2>
+        <p>{{ message }}</p>
+        <p>{{ "Pro edition includes:"|t('mailcraft') }}</p>
+        <ul>
+            <li>{{ "Unlimited email templates"|t('mailcraft') }}</li>
+            <li>{{ "Additional trigger events"|t('mailcraft') }}</li>
+            <li>{{ "Delayed sending"|t('mailcraft') }}</li>
+            <li>{{ "Multiple recipients (CC/BCC)"|t('mailcraft') }}</li>
+            <li>{{ "Commerce integration"|t('mailcraft') }}</li>
+        </ul>
+        <a href="{{ url('plugin-store/mailcraft') }}" class="btn submit">{{ "Upgrade to Pro"|t('mailcraft') }}</a>
+    </div>
+{% endblock %}

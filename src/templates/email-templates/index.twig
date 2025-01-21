@@ -1,0 +1,10 @@
+{% extends '_layouts/elementindex.twig' %}
+{% set title = "Email Templates"|t('mailcraft') %}
+{% set elementType = 'frontendservices\\mailcraft\\elements\\EmailTemplate' %}
+{% set selectedSubnavItem = 'mailcraft' %}
+
+{% block actionButton %}
+    {% if currentUser.can('mailcraft:manageEmailTemplates') %}
+        <a href="{{ url('mailcraft/email-templates/new') }}" class="btn submit add icon">{{ "New email template"|t('mailcraft') }}</a>
+    {% endif %}
+{% endblock %}
