@@ -13,12 +13,6 @@ class SendEmailJob extends BaseJob
 
     public function execute($queue): void
     {
-//        $template = EmailTemplate::findOne($this->templateId);
-//
-//        if (!$template) {
-//            return;
-//        }
-
         $this->setProgress($queue, 0.5);
 
         MailCraft::getInstance()->emailService->sendEmail($this->variables);

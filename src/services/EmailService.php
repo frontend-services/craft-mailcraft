@@ -8,8 +8,6 @@ use craft\base\Element;
 use craft\elements\Entry;
 use craft\elements\User;
 use craft\events\ModelEvent;
-use craft\helpers\App;
-use craft\helpers\ElementHelper;
 use craft\mail\Message;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\TriggerEvents;
@@ -18,7 +16,6 @@ use frontendservices\mailcraft\MailCraft;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\Event;
-use yii\base\Exception;
 use yii\base\Model;
 
 /**
@@ -72,20 +69,6 @@ class EmailService extends Component
             $message->setReplyTo($variables['replyTo']);
             $message->setHtmlBody($variables['message']);
 
-            // Pro edition features
-//            if (MailCraft::getInstance()->is("Pro")) {
-//                if ($template->cc) {
-//                    $message->setCc($template->cc);
-//                }
-//                if ($template->bcc) {
-//                    $message->setBcc($template->bcc);
-//                }
-//                if ($template->replyTo) {
-//                    $message->setReplyTo($template->replyTo);
-//                }
-//            }
-
-            // Send the email
             return Craft::$app->mailer->send($message);
         } catch (\Throwable $e) {
             Craft::error('Error sending email: ' . $e->getMessage(), __METHOD__);
@@ -236,12 +219,6 @@ class EmailService extends Component
      */
     private function handleTrigger(string $eventName, array $variables = []): void
     {
-        // check if pro edition is required for eventName, and block if no Pro edition
-//        if (TriggerEvents::isProEvent($eventName) && !MailCraft::getInstance()->is("Pro")) {
-//            return;
-//        }
-
-
         // Find all email templates for this event
         $templates = EmailTemplate::find()
             ->event($eventName)
@@ -249,11 +226,23 @@ class EmailService extends Component
             ->all();
 
         foreach ($templates as $template) {
-            if ($template->delay && MailCraft::getInstance()->is("Pro")) {
-                $this->queueEmail($template, $variables, $template->delay);
-            } else {
-                $this->queueEmail($template, $variables);
+            if (!$this->testTemplateConditions($template, $variables) && MailCraft::getInstance()->is('Pro')) {
+                continue;
             }
+
+            $this->queueEmail($template, $variables, $template->delay && MailCraft::getInstance()->is('Pro') ? $template->delay : self::QUEUE_DELAY);
         }
+    }
+
+    /**
+     * Test template conditions
+     */
+    private function testTemplateConditions(EmailTemplate $template, mixed $variables = []): bool
+    {
+        if ($template->conditions && MailCraft::getInstance()->is('Pro')) {
+            return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
+        }
+
+        return true;
     }
 }

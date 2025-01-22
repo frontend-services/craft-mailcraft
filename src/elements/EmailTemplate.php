@@ -29,6 +29,7 @@ class EmailTemplate extends Element
     public ?string $from = null;
     public ?string $fromName = null;
     public ?string $replyTo = null;
+    public ?string $conditions = null;
 
     /**
      * @inheritdoc
@@ -116,6 +117,7 @@ class EmailTemplate extends Element
         $rules[] = [['title', 'subject'], 'string', 'max' => 255];
         $rules[] = ['delay', 'integer', 'min' => 0];
         $rules[] = ['event', 'in', 'range' => TriggerEvents::getAvailableEventsList()];
+        $rules[] = ['conditions', 'string'];
 
         // Pro edition validations
         if (!Craft::$app->plugins->getPlugin('mailcraft')->is("Pro")) {
@@ -123,9 +125,6 @@ class EmailTemplate extends Element
             $rules[] = ['delay', 'validateNoDelay'];
             $rules[] = [['cc', 'bcc'], 'validateNoMultipleRecipients'];
         }
-
-        // Email validations
-//        $rules[] = [['to', 'cc', 'bcc', 'from', 'replyTo'], 'email'];
 
         return $rules;
     }
@@ -135,7 +134,7 @@ class EmailTemplate extends Element
      */
     public function validateFreeEvent($attribute): void
     {
-        if (!in_array($this->$attribute, TriggerEvents::getAvailableEventsList())) {
+        if (!TriggerEvents::isAvailableEvent($this->$attribute)) {
             $this->addError($attribute, Craft::t('mailcraft', 'Event is only available in Pro edition'));
         }
     }
@@ -187,6 +186,7 @@ class EmailTemplate extends Element
         $record->from = $this->from;
         $record->fromName = $this->fromName;
         $record->replyTo = $this->replyTo;
+        $record->conditions = $this->conditions;
 
         $record->save(false);
 

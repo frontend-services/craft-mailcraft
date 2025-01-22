@@ -79,6 +79,16 @@
             }) }}
 
             {{ forms.textField({
+                label: "Conditions"|t('mailcraft'),
+                instructions: "Extra conditions to be met before sending the email. For example, <code>entry.section==\"news\"</code> to only send the email when the entry is in the 'news' section."|t('mailcraft'),
+                id: 'conditions',
+                name: 'conditions',
+                value: emailTemplate.conditions,
+                errors: emailTemplate.getErrors('conditions'),
+                disabled: not craft.mailCraft.isPro(),
+            }) }}
+
+            {{ forms.textField({
                 label: "Delay"|t('mailcraft'),
                 instructions: "Delay in seconds before sending the email. For example send an email 2 days after user registers."|t('mailcraft'),
                 id: 'delay',
@@ -120,6 +130,7 @@
 
             {{ forms.textField({
                 label: "To Name"|t('mailcraft'),
+                instructions: "Recipient name"|t('mailcraft'),
                 id: 'toName',
                 name: 'toName',
                 value: emailTemplate.toName,

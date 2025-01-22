@@ -21,20 +21,6 @@ class TriggerEvents
     public const EVENT_COMMERCE_ORDER_COMPLETE = 'commerce.order.complete';
     public const EVENT_COMMERCE_ORDER_STATUS = 'commerce.order.status';
 
-//    public const PRO_EVENTS = [
-//        self::EVENT_ENTRY_DELETE,
-//        self::EVENT_USER_UPDATE,
-//        self::EVENT_USER_VERIFY,
-//        self::EVENT_COMMERCE_ORDER_COMPLETE,
-//        self::EVENT_COMMERCE_ORDER_STATUS,
-//    ];
-//
-//    public const EVENT_GROUPS = [
-//        'entries' => 'Entries',
-//        'users' => 'Users',
-//        'commerce' => 'Commerce',
-//    ];
-
     public const EVENT_DETAILS = [
         self::EVENT_ENTRY_CREATE => [
             'label' => 'When Entry is Created',

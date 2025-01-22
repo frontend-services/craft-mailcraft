@@ -42,7 +42,7 @@ class EmailTemplatesController extends Controller
      * @throws NotFoundHttpException
      * @throws ForbiddenHttpException
      */
-    public function actionNew(EmailTemplate $emailTemplate = null): Response
+    public function actionNew(): Response
     {
         $this->requirePermission('mailcraft:manageEmailTemplates');
 
@@ -110,6 +110,7 @@ class EmailTemplatesController extends Controller
         $emailTemplate->toName = $this->request->getBodyParam('toName');
         $emailTemplate->from = $this->request->getBodyParam('from');
         $emailTemplate->fromName = $this->request->getBodyParam('fromName');
+        $emailTemplate->conditions = $this->request->getBodyParam('conditions');
         $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
 
         // Pro edition fields
