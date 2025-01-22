@@ -46,8 +46,8 @@ class MailCraft extends Plugin
     public static function editions(): array
     {
         return [
-            self::EDITION_STANDARD => 'Standard',
-            self::EDITION_PRO => 'Pro',
+            self::EDITION_STANDARD,
+            self::EDITION_PRO,
         ];
     }
 
