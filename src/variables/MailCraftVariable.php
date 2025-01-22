@@ -76,7 +76,7 @@ class MailCraftVariable
      */
     public function isPro(): bool
     {
-        return MailCraft::getInstance()->is("Pro");
+        return MailCraft::getInstance()->is(MailCraft::EDITION_PRO);
     }
 
     /**

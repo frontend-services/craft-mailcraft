@@ -128,7 +128,7 @@ class EmailService extends Component
             function(ModelEvent $event) {
                 if ($event->isNew) {
                     $this->handleTrigger(TriggerEvents::EVENT_USER_CREATE, ['user' => $event->sender]);
-                } elseif (MailCraft::getInstance()->is("Pro")) {
+                } elseif (MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
                     $this->handleTrigger(TriggerEvents::EVENT_USER_UPDATE, ['user' => $event->sender]);
                 }
             }
@@ -226,11 +226,11 @@ class EmailService extends Component
             ->all();
 
         foreach ($templates as $template) {
-            if (!$this->testTemplateConditions($template, $variables) && MailCraft::getInstance()->is('Pro')) {
+            if (!$this->testTemplateConditions($template, $variables) && MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
                 continue;
             }
 
-            $this->queueEmail($template, $variables, $template->delay && MailCraft::getInstance()->is('Pro') ? $template->delay : self::QUEUE_DELAY);
+            $this->queueEmail($template, $variables, $template->delay && MailCraft::getInstance()->is(MailCraft::EDITION_PRO) ? $template->delay : self::QUEUE_DELAY);
         }
     }
 
@@ -239,7 +239,7 @@ class EmailService extends Component
      */
     private function testTemplateConditions(EmailTemplate $template, mixed $variables = []): bool
     {
-        if ($template->conditions && MailCraft::getInstance()->is('Pro')) {
+        if ($template->conditions && MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
             return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
         }
 

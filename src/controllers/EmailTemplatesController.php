@@ -69,7 +69,7 @@ class EmailTemplatesController extends Controller
         }
 
         // Check if we're limited by the standard edition
-        if (!MailCraft::getInstance()->is("Pro")) {
+        if (!MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
             $existingCount = EmailTemplate::find()->count();
             if ($existingCount >= 3 && !$templateId) {
                 return $this->renderTemplate('mailcraft/email-templates/_upgrade', [
@@ -110,15 +110,15 @@ class EmailTemplatesController extends Controller
         $emailTemplate->toName = $this->request->getBodyParam('toName');
         $emailTemplate->from = $this->request->getBodyParam('from');
         $emailTemplate->fromName = $this->request->getBodyParam('fromName');
-        $emailTemplate->conditions = $this->request->getBodyParam('conditions');
         $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
 
         // Pro edition fields
-        if (MailCraft::getInstance()->is("Pro")) {
+        if (MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
             $emailTemplate->delay = $this->request->getBodyParam('delay');
             $emailTemplate->cc = $this->request->getBodyParam('cc');
             $emailTemplate->bcc = $this->request->getBodyParam('bcc');
             $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
+            $emailTemplate->conditions = $this->request->getBodyParam('conditions');
         }
 
         // Save the email template

@@ -120,7 +120,7 @@ class EmailTemplate extends Element
         $rules[] = ['conditions', 'string'];
 
         // Pro edition validations
-        if (!Craft::$app->plugins->getPlugin('mailcraft')->is("Pro")) {
+        if (!Craft::$app->plugins->getPlugin('mailcraft')->is(MailCraft::EDITION_PRO)) {
             $rules[] = ['event', 'validateFreeEvent'];
             $rules[] = ['delay', 'validateNoDelay'];
             $rules[] = [['cc', 'bcc'], 'validateNoMultipleRecipients'];

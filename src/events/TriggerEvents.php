@@ -25,42 +25,42 @@ class TriggerEvents
         self::EVENT_ENTRY_CREATE => [
             'label' => 'When Entry is Created',
             'group' => 'entries',
-            'requireEdition' => 'Standard'
+            'requireEdition' => MailCraft::EDITION_STANDARD
         ],
         self::EVENT_ENTRY_UPDATE => [
             'label' => 'When Entry is Updated',
             'group' => 'entries',
-            'requireEdition' => 'Standard'
+            'requireEdition' => MailCraft::EDITION_STANDARD
         ],
         self::EVENT_ENTRY_DELETE => [
             'label' => 'When Entry is Deleted',
             'group' => 'entries',
-            'requireEdition' => 'Pro',
+            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_USER_CREATE => [
             'label' => 'When User is Created',
             'group' => 'users',
-            'requireEdition' => 'Standard'
+            'requireEdition' => MailCraft::EDITION_STANDARD
         ],
         self::EVENT_USER_UPDATE => [
             'label' => 'When User is Updated',
             'group' => 'users',
-            'requireEdition' => 'Pro',
+            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_USER_VERIFY => [
             'label' => 'When User Verifies Email',
             'group' => 'users',
-            'requireEdition' => 'Pro',
+            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_COMMERCE_ORDER_COMPLETE => [
             'label' => 'When Order is Complete',
             'group' => 'commerce',
-            'requireEdition' => 'Pro',
+            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_COMMERCE_ORDER_STATUS => [
             'label' => 'When Order Status Changes',
             'group' => 'commerce',
-            'requireEdition' => 'Pro',
+            'requireEdition' => MailCraft::EDITION_PRO,
         ],
     ];
 
