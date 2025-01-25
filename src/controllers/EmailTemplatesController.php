@@ -68,16 +68,6 @@ class EmailTemplatesController extends Controller
             $emailTemplate = new EmailTemplate();
         }
 
-        // Check if we're limited by the standard edition
-        if (!MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
-            $existingCount = EmailTemplate::find()->count();
-            if ($existingCount >= 3 && !$templateId) {
-                return $this->renderTemplate('mailcraft/email-templates/_upgrade', [
-                    'message' => Craft::t('mailcraft', 'Standard edition is limited to 3 email templates. Please upgrade to Pro.'),
-                ]);
-            }
-        }
-
         return $this->renderTemplate('mailcraft/email-templates/_edit', [
             'emailTemplate' => $emailTemplate,
         ]);
@@ -111,15 +101,13 @@ class EmailTemplatesController extends Controller
         $emailTemplate->from = $this->request->getBodyParam('from');
         $emailTemplate->fromName = $this->request->getBodyParam('fromName');
         $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
-
-        // Pro edition fields
-        if (MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
-            $emailTemplate->delay = $this->request->getBodyParam('delay');
-            $emailTemplate->cc = $this->request->getBodyParam('cc');
-            $emailTemplate->bcc = $this->request->getBodyParam('bcc');
-            $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
-            $emailTemplate->conditions = $this->request->getBodyParam('conditions');
-        }
+        $emailTemplate->delay = $this->request->getBodyParam('delay');
+        $emailTemplate->cc = $this->request->getBodyParam('cc');
+        $emailTemplate->bcc = $this->request->getBodyParam('bcc');
+        $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
+        $emailTemplate->conditions = $this->request->getBodyParam('conditions');
+        $emailTemplate->condition1 = $this->request->getBodyParam('condition1');
+        $emailTemplate->condition2 = $this->request->getBodyParam('condition2');
 
         // Save the email template
         if (!Craft::$app->elements->saveElement($emailTemplate)) {

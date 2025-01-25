@@ -20,6 +20,8 @@ use craft\db\ActiveRecord;
  * @property string|null $fromName
  * @property string|null $replyTo
  * @property string|null $conditions
+ * @property string|null $condition1
+ * @property string|null $condition2
  */
 class EmailTemplateRecord extends ActiveRecord
 {

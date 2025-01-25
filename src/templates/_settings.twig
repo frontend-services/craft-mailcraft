@@ -1,5 +1,7 @@
 {% import "_includes/forms" as forms %}
 
+{# frontendservices\mailcraft\models\Settings #}
+
 {{ forms.textField({
     label: "Plugin Name"|t('mailcraft'),
     instructions: "How the plugin should be named in the CP"|t('mailcraft'),
@@ -11,3 +13,23 @@
     autofocus: true,
     required: true,
 }) }}
+
+{{ forms.lightswitchField({
+    label: "Use WYSIWYG Editor"|t('mailcraft'),
+    instructions: "Whether to use a WYSIWYG editor for the email templates"|t('mailcraft'),
+    id: 'useWysiwyg',
+    name: 'useWysiwyg',
+    on: settings.useWysiwyg,
+    errors: settings.getErrors('useWysiwyg'),
+}) }}
+
+{#
+{{ forms.lightswitchField({
+    label: "Show CC/BCC Fields"|t('mailcraft'),
+    instructions: "Whether to show extra email fields (Reply To, CC and BCC ) in the email templates"|t('mailcraft'),
+    id: 'showCcBcc',
+    name: 'showCcBcc',
+    on: settings.showCcBcc,
+    errors: settings.getErrors('showCcBcc'),
+}) }}
+#}

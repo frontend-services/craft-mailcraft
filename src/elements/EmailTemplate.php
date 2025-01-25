@@ -12,6 +12,7 @@ use frontendservices\mailcraft\elements\db\EmailTemplateQuery;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\records\EmailTemplateRecord;
+use yii\db\Exception;
 
 /**
  * EmailTemplate element type
@@ -30,6 +31,8 @@ class EmailTemplate extends Element
     public ?string $fromName = null;
     public ?string $replyTo = null;
     public ?string $conditions = null;
+    public ?string $condition1 = null;
+    public ?string $condition2 = null;
 
     /**
      * @inheritdoc
@@ -119,48 +122,12 @@ class EmailTemplate extends Element
         $rules[] = ['event', 'in', 'range' => TriggerEvents::getAvailableEventsList()];
         $rules[] = ['conditions', 'string'];
 
-        // Pro edition validations
-        if (!Craft::$app->plugins->getPlugin('mailcraft')->is(MailCraft::EDITION_PRO)) {
-            $rules[] = ['event', 'validateFreeEvent'];
-            $rules[] = ['delay', 'validateNoDelay'];
-            $rules[] = [['cc', 'bcc'], 'validateNoMultipleRecipients'];
-        }
-
         return $rules;
     }
 
     /**
-     * Validates that the event is available in standard edition
-     */
-    public function validateFreeEvent($attribute): void
-    {
-        if (!TriggerEvents::isAvailableEvent($this->$attribute)) {
-            $this->addError($attribute, Craft::t('mailcraft', 'Event is only available in Pro edition'));
-        }
-    }
-
-    /**
-     * Validates that delay is not set in standard edition
-     */
-    public function validateNoDelay($attribute)
-    {
-        if ($this->$attribute !== null) {
-            $this->addError($attribute, Craft::t('mailcraft', 'Delay is only available in Pro edition'));
-        }
-    }
-
-    /**
-     * Validates that CC/BCC are not set in standard edition
-     */
-    public function validateNoMultipleRecipients($attribute)
-    {
-        if (!empty($this->$attribute)) {
-            $this->addError($attribute, Craft::t('mailcraft', 'Multiple recipients are only available in Pro edition'));
-        }
-    }
-
-    /**
      * @inheritdoc
+     * @throws Exception
      */
     public function afterSave(bool $isNew): void
     {
@@ -187,6 +154,8 @@ class EmailTemplate extends Element
         $record->fromName = $this->fromName;
         $record->replyTo = $this->replyTo;
         $record->conditions = $this->conditions;
+        $record->condition1 = $this->condition1;
+        $record->condition2 = $this->condition2;
 
         $record->save(false);
 

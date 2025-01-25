@@ -36,47 +36,19 @@ class MailCraftVariable
             $options[] = ['optgroup' => $group];
 
             foreach ($event as $key => $details) {
-                $disabled = !TriggerEvents::isAvailableEvent($key);
-
-                if ($disabled && !Craft::$app->getConfig()->env === 'dev') {
-                    continue;
-                }
-
                 $options[] = [
-                    'label' => $details['label'] . ($disabled ? ' ᴾᴿᴼ' : ''),
+                    'label' => $details['label'],
                     'value' => $key,
-                    'disabled' => $disabled,
                 ];
             }
         }
 
         return $options;
-
-        //        $events = TriggerEvents::getAvailableEvents();
-//        $options = [];
-//
-//        foreach ($events as $group => $event) {
-//            $options[] = ['optgroup' => $group];
-//
-//            foreach ($event as $key => $label) {
-//                $options[] = ['label' => $label, 'value' => $key];
-//            }
-//        }
-//
-//        return $options;
     }
 
     public function getAvailableEventsList(): array
     {
         return TriggerEvents::getAvailableEventsList();
-    }
-
-    /**
-     * Check if plugin is in Pro mode
-     */
-    public function isPro(): bool
-    {
-        return MailCraft::getInstance()->is(MailCraft::EDITION_PRO);
     }
 
     /**
@@ -96,8 +68,9 @@ class MailCraftVariable
         $name = Craft::t('mailcraft', 'Template');
         $instructions = Craft::t('mailcraft', 'Email body template. Use Twig syntax for dynamic content.');
         $template = $emailTemplate->template;
+        $pluginSettings = MailCraft::getInstance()->getSettings();
 
-        if (Craft::$app->plugins->isPluginEnabled('ckeditor')) {
+        if (Craft::$app->plugins->isPluginEnabled('ckeditor') && $pluginSettings->useWysiwyg) {
             $field = new \craft\ckeditor\Field([
                 'handle' => $handle,
                 'name' => $name,
@@ -156,7 +129,8 @@ EOD;
                 'handle' => $handle,
                 'instructions' => $instructions,
                 'template' => $template,
-            ]);
+                'emailTemplate' => $emailTemplate,
+            ], View::TEMPLATE_MODE_CP);
         } catch (LoaderError|SyntaxError $e) {
             return $e->getMessage();
         }

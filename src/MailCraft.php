@@ -38,7 +38,6 @@ class MailCraft extends Plugin
 
     // Edition constants
     public const EDITION_STANDARD = 'standard';
-    public const EDITION_PRO = 'pro';
 
     /**
      * @inheritdoc
@@ -47,7 +46,6 @@ class MailCraft extends Plugin
     {
         return [
             self::EDITION_STANDARD,
-            self::EDITION_PRO,
         ];
     }
 
@@ -162,10 +160,10 @@ class MailCraft extends Plugin
         );
     }
 
-    protected function cpNavIconPath(): ?string
-    {
-        return null; // Replace with path to your icon if you have one
-    }
+//    protected function cpNavIconPath(): ?string
+//    {
+//        return null; // Replace with path to your icon if you have one
+//    }
 
     public function getCpNavItem(): ?array
     {

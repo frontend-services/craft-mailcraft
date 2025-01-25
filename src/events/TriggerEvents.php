@@ -2,9 +2,6 @@
 
 namespace frontendservices\mailcraft\events;
 
-use Craft;
-use frontendservices\mailcraft\MailCraft;
-
 class TriggerEvents
 {
     // Entry events
@@ -25,42 +22,34 @@ class TriggerEvents
         self::EVENT_ENTRY_CREATE => [
             'label' => 'When Entry is Created',
             'group' => 'entries',
-            'requireEdition' => MailCraft::EDITION_STANDARD
         ],
         self::EVENT_ENTRY_UPDATE => [
             'label' => 'When Entry is Updated',
             'group' => 'entries',
-            'requireEdition' => MailCraft::EDITION_STANDARD
         ],
         self::EVENT_ENTRY_DELETE => [
             'label' => 'When Entry is Deleted',
             'group' => 'entries',
-            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_USER_CREATE => [
             'label' => 'When User is Created',
             'group' => 'users',
-            'requireEdition' => MailCraft::EDITION_STANDARD
         ],
         self::EVENT_USER_UPDATE => [
             'label' => 'When User is Updated',
             'group' => 'users',
-            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_USER_VERIFY => [
             'label' => 'When User Verifies Email',
             'group' => 'users',
-            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_COMMERCE_ORDER_COMPLETE => [
             'label' => 'When Order is Complete',
             'group' => 'commerce',
-            'requireEdition' => MailCraft::EDITION_PRO,
         ],
         self::EVENT_COMMERCE_ORDER_STATUS => [
             'label' => 'When Order Status Changes',
             'group' => 'commerce',
-            'requireEdition' => MailCraft::EDITION_PRO,
         ],
     ];
 
@@ -117,28 +106,5 @@ class TriggerEvents
     {
         $parts = explode('.', $event);
         return $parts[0];
-    }
-
-    /**
-     * Check if event is Pro edition only
-     */
-    public static function isProEvent(string $event): bool
-    {
-        return !in_array($event, self::getAvailableEventsList(), true);
-    }
-
-    /**
-     * Check if event is available in current edition
-     */
-    public static function isAvailableEvent(string $event): bool
-    {
-        $currentEdition = MailCraft::getInstance()->edition;
-
-        if ($currentEdition === MailCraft::EDITION_PRO) {
-            return true;
-        }
-
-        $eventEdition = self::EVENT_DETAILS[$event]['requireEdition'];
-        return $currentEdition === $eventEdition;
     }
 }

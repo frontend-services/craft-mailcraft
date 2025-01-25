@@ -12,10 +12,10 @@ use craft\mail\Message;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\jobs\SendEmailJob;
-use frontendservices\mailcraft\MailCraft;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\Event;
+use yii\base\Exception;
 use yii\base\Model;
 
 /**
@@ -93,8 +93,10 @@ class EmailService extends Component
             'message' => $this->renderString($template->template, $variables),
         ];
 
+        $sendTime = time() + $delay;
         Craft::$app->queue->delay($delay)->push(new SendEmailJob([
             'variables' => $emailVariables,
+            'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $emailVariables['subject'],
         ]));
     }
 
@@ -128,7 +130,7 @@ class EmailService extends Component
             function(ModelEvent $event) {
                 if ($event->isNew) {
                     $this->handleTrigger(TriggerEvents::EVENT_USER_CREATE, ['user' => $event->sender]);
-                } elseif (MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
+                } else {
                     $this->handleTrigger(TriggerEvents::EVENT_USER_UPDATE, ['user' => $event->sender]);
                 }
             }
@@ -147,9 +149,7 @@ class EmailService extends Component
                     $entry->firstSave &&
                     !$entry->propagating
                 ) {
-                    if (TriggerEvents::isAvailableEvent(TriggerEvents::EVENT_ENTRY_CREATE)) {
-                        $this->handleTrigger(TriggerEvents::EVENT_ENTRY_CREATE, ['entry' => $entry]);
-                    }
+                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_CREATE, ['entry' => $entry]);
                 // TriggerEvents::EVENT_ENTRY_UPDATE
                 } elseif (
                     !($entry->getIsDraft()) &&
@@ -161,57 +161,54 @@ class EmailService extends Component
                     !$entry->resaving &&
                     !($entry->getIsRevision())
                 ) {
-                    if (TriggerEvents::isAvailableEvent(TriggerEvents::EVENT_ENTRY_UPDATE)) {
-                        $this->handleTrigger(TriggerEvents::EVENT_ENTRY_UPDATE, ['entry' => $entry]);
-                    }
+                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_UPDATE, ['entry' => $entry]);
                 }
             }
         );
 
-        // Pro edition events
-            // Entry deletion
-            Event::on(
-                Entry::class,
-                Element::EVENT_BEFORE_DELETE,
-                function(Event $event) {
-                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_DELETE, ['entry' => $event->sender]);
-                }
-            );
-
-            // User email verification
-            Event::on(
-                User::class,
-                Model::EVENT_AFTER_VALIDATE,
-                function(Event $event) {
-                    $this->handleTrigger(TriggerEvents::EVENT_USER_VERIFY, ['user' => $event->sender]);
-                }
-            );
-
-            // Commerce events (if plugin is installed)
-            if (Craft::$app->plugins->isPluginEnabled('commerce')) {
-                Event::on(
-                    \craft\commerce\elements\Order::class,
-                    \craft\commerce\elements\Order::EVENT_AFTER_COMPLETE_ORDER,
-                    function(Event $event) {
-                        $this->handleTrigger(TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE, ['order' => $event->sender]);
-                    }
-                );
-
-                Event::on(
-                    \craft\commerce\elements\Order::class,
-                    \craft\commerce\elements\Order::EVENT_AFTER_ORDER_STATUS_CHANGE,
-                    function(\craft\commerce\events\OrderStatusEvent $event) {
-                        $this->handleTrigger(
-                            TriggerEvents::EVENT_COMMERCE_ORDER_STATUS,
-                            [
-                                'order' => $event->order,
-                                'oldStatus' => $event->oldStatus,
-                                'newStatus' => $event->newStatus,
-                            ]
-                        );
-                    }
-                );
+        // Entry deletion
+        Event::on(
+            Entry::class,
+            Element::EVENT_BEFORE_DELETE,
+            function(Event $event) {
+                $this->handleTrigger(TriggerEvents::EVENT_ENTRY_DELETE, ['entry' => $event->sender]);
             }
+        );
+
+        // User email verification
+        Event::on(
+            User::class,
+            Model::EVENT_AFTER_VALIDATE,
+            function(Event $event) {
+                $this->handleTrigger(TriggerEvents::EVENT_USER_VERIFY, ['user' => $event->sender]);
+            }
+        );
+
+        // Commerce events (if plugin is installed)
+        if (Craft::$app->plugins->isPluginEnabled('commerce')) {
+            Event::on(
+                \craft\commerce\elements\Order::class,
+                \craft\commerce\elements\Order::EVENT_AFTER_COMPLETE_ORDER,
+                function(Event $event) {
+                    $this->handleTrigger(TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE, ['order' => $event->sender]);
+                }
+            );
+
+            Event::on(
+                \craft\commerce\elements\Order::class,
+                \craft\commerce\elements\Order::EVENT_AFTER_ORDER_STATUS_CHANGE,
+                function(\craft\commerce\events\OrderStatusEvent $event) {
+                    $this->handleTrigger(
+                        TriggerEvents::EVENT_COMMERCE_ORDER_STATUS,
+                        [
+                            'order' => $event->order,
+                            'oldStatus' => $event->oldStatus,
+                            'newStatus' => $event->newStatus,
+                        ]
+                    );
+                }
+            );
+        }
     }
 
     /**
@@ -226,11 +223,11 @@ class EmailService extends Component
             ->all();
 
         foreach ($templates as $template) {
-            if (!$this->testTemplateConditions($template, $variables) && MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
+            if (!$this->testTemplateConditions($template, $variables)) {
                 continue;
             }
 
-            $this->queueEmail($template, $variables, $template->delay && MailCraft::getInstance()->is(MailCraft::EDITION_PRO) ? $template->delay : self::QUEUE_DELAY);
+            $this->queueEmail($template, $variables, $template->delay ?: self::QUEUE_DELAY);
         }
     }
 
@@ -239,8 +236,13 @@ class EmailService extends Component
      */
     private function testTemplateConditions(EmailTemplate $template, mixed $variables = []): bool
     {
-        if ($template->conditions && MailCraft::getInstance()->is(MailCraft::EDITION_PRO)) {
-            return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
+        if ($template->conditions) {
+            try {
+                return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
+            } catch (Exception|\Throwable $e) {
+                Craft::error('Error with conditions: ' . $e->getMessage(), __METHOD__);
+                return false;
+            }
         }
 
         return true;

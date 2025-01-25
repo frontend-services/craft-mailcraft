@@ -20,6 +20,9 @@ class SendEmailJob extends BaseJob
         $this->setProgress($queue, 1);
     }
 
+    /**
+     * @inheritdoc
+     */
     protected function defaultDescription(): string
     {
         return Craft::t('mailcraft', 'Sending email');

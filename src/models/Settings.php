@@ -15,6 +15,16 @@ class Settings extends Model
     public string $pluginName = 'MailCraft';
 
     /**
+     * @var bool Whether to use CKEditor for the email template editor if CKEditor plugin is installed
+     */
+    public bool $useWysiwyg = true;
+
+    /**
+     * @var bool Wheter to show CC and BCC fields in the email template editor
+     */
+    public bool $showCcBcc = false;
+
+    /**
      * @inheritdoc
      */
     public function rules(): array
@@ -22,6 +32,10 @@ class Settings extends Model
         return [
             ['pluginName', 'string'],
             ['pluginName', 'default', 'value' => 'MailCraft'],
+            ['useWysiwyg', 'boolean'],
+            ['useWysiwyg', 'default', 'value' => true],
+            ['showCcBcc', 'boolean'],
+            ['showCcBcc', 'default', 'value' => false],
         ];
     }
 }

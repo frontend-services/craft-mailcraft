@@ -45,6 +45,8 @@ class EmailTemplateQuery extends ElementQuery
             'mailcraft_emailtemplates.fromName',
             'mailcraft_emailtemplates.replyTo',
             'mailcraft_emailtemplates.conditions',
+            'mailcraft_emailtemplates.condition1',
+            'mailcraft_emailtemplates.condition2',
         ]);
 
         if ($this->event) {
