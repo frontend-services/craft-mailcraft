@@ -13,6 +13,7 @@ use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\models\Settings;
+use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\variables\MailCraftVariable;
 use yii\base\Event;
@@ -26,6 +27,7 @@ use yii\base\Event;
  * @copyright frontend.services
  * @license https://craftcms.github.io/license/ Craft License
  * @property-read EmailService $emailService
+ * @property-read ConditionService $conditionService
  */
 class MailCraft extends Plugin
 {
@@ -54,6 +56,7 @@ class MailCraft extends Plugin
         return [
             'components' => [
                 'emailService' => ['class' => 'frontendservices\mailcraft\services\EmailService'],
+                'conditionService' => ['class' => 'frontendservices\mailcraft\services\ConditionService'],
             ],
         ];
     }
@@ -135,7 +138,7 @@ class MailCraft extends Plugin
         Event::on(
             Elements::class,
             Elements::EVENT_REGISTER_ELEMENT_TYPES,
-            function(RegisterComponentTypesEvent $event) {
+            static function(RegisterComponentTypesEvent $event) {
                 $event->types[] = EmailTemplate::class;
             }
         );
@@ -146,24 +149,19 @@ class MailCraft extends Plugin
         Event::on(
             UserPermissions::class,
             UserPermissions::EVENT_REGISTER_PERMISSIONS,
-            function(RegisterUserPermissionsEvent $event) {
-                $event->permissions['MailCraft'] = [
-                    'mailcraft:viewEmailTemplates' => [
-                        'label' => Craft::t('mailcraft', 'View email templates'),
-                    ],
-                    'mailcraft:manageEmailTemplates' => [
-                        'label' => Craft::t('mailcraft', 'Manage email templates'),
-                        'info' => Craft::t('mailcraft', 'Create, edit and delete email templates'),
+            static function(RegisterUserPermissionsEvent $event) {
+                $event->permissions[] = [
+                    "heading" => "MailCraft",
+                    "permissions" => [
+                        'mailcraft:manageEmailTemplates' => [
+                            'label' => Craft::t('mailcraft', 'Manage email templates'),
+                            'info' => Craft::t('mailcraft', 'Create, edit and delete email templates'),
+                        ],
                     ],
                 ];
             }
         );
     }
-
-//    protected function cpNavIconPath(): ?string
-//    {
-//        return null; // Replace with path to your icon if you have one
-//    }
 
     public function getCpNavItem(): ?array
     {

@@ -135,4 +135,12 @@ EOD;
             return $e->getMessage();
         }
     }
+
+    /**
+     * Get global conditions
+     */
+    public function getGlobalConditions(): array
+    {
+        return MailCraft::getInstance()->conditionService->getConditions();
+    }
 }
