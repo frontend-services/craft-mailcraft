@@ -247,14 +247,14 @@
 {% endblock %}
 
 {% js %}
-    document.querySelectorAll('.timepicker button').forEach(function(button) {
-        button.addEventListener('click', function() {
-            document.getElementById('delay').value = parseInt(this.getAttribute('data-time'));
-        });
+document.querySelectorAll('.timepicker button').forEach(function(button) {
+    button.addEventListener('click', function() {
+        document.getElementById('delay').value = parseInt(this.getAttribute('data-time'));
     });
+});
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const globalConditions = {{ craft.mailCraft.getGlobalConditions|json_encode|raw }};
+document.addEventListener('DOMContentLoaded', function() {
+    const globalConditions = {{ craft.mailCraft.getGlobalConditions|json_encode|raw }};
         window.globalConditions = globalConditions;
 
         setTimeout(() => { {# Give it some time to be sure that selectize has initialized #}
@@ -283,7 +283,6 @@
                     select.addOption(option);
                 });
                 select.refreshOptions(false);
-                select.setValue(options[0].value);
                 select.updatePlaceholder();
 
                 // find parent element with class 'field' and add label
@@ -324,6 +323,22 @@
                 condition1Select.off('change');
                 updateConditionSelect(condition1Select, globalConditions?.[group]?.condition1 ?? null, condition2Select, group);
             });
+
+            // Set existing values for condition1 and condition2
+            const existingCondition1 = '{{ emailTemplate.condition1 }}';
+            const existingCondition2 = '{{ emailTemplate.condition2 }}';
+
+            if (existingCondition1) {
+                setTimeout(() => {
+                    condition1Select.setValue(existingCondition1);
+                }, 500);
+            }
+
+            if (existingCondition2) {
+                setTimeout(() => {
+                    condition2Select.setValue(existingCondition2);
+                }, 500);
+            }
 
             eventSelect.trigger('change', eventSelect.getValue());
         }, 500);
