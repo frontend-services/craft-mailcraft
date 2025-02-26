@@ -13,10 +13,19 @@ class TriggerEvents
     public const EVENT_USER_CREATE = 'user.create';
     public const EVENT_USER_UPDATE = 'user.update';
     public const EVENT_USER_VERIFY = 'user.verify';
+    public const EVENT_USER_LOGIN = 'user.login';
+    public const EVENT_USER_DELETE = 'user.delete';
 
     // Commerce events
     public const EVENT_COMMERCE_ORDER_COMPLETE = 'commerce.order.complete';
     public const EVENT_COMMERCE_ORDER_STATUS = 'commerce.order.status';
+    public const EVENT_COMMERCE_ORDER_DELETE = 'commerce.order.delete';
+    // product update
+    // product delete
+    // product create
+    // variant update
+    // variant delete
+    // variant create
 
     public const EVENT_DETAILS = [
         self::EVENT_ENTRY_CREATE => [
@@ -43,12 +52,24 @@ class TriggerEvents
             'label' => 'When User Verifies Email',
             'group' => 'users',
         ],
+        self::EVENT_USER_LOGIN => [
+            'label' => 'When User Logs In',
+            'group' => 'users',
+        ],
+        self::EVENT_USER_DELETE => [
+            'label' => 'When User is Deleted',
+            'group' => 'users',
+        ],
         self::EVENT_COMMERCE_ORDER_COMPLETE => [
             'label' => 'When Order is Complete',
             'group' => 'commerce',
         ],
         self::EVENT_COMMERCE_ORDER_STATUS => [
             'label' => 'When Order Status Changes',
+            'group' => 'commerce',
+        ],
+        self::EVENT_COMMERCE_ORDER_DELETE => [
+            'label' => 'When Order is Deleted',
             'group' => 'commerce',
         ],
     ];

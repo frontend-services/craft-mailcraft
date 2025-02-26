@@ -169,7 +169,7 @@ class EmailService extends Component
         // Entry deletion
         Event::on(
             Entry::class,
-            Element::EVENT_BEFORE_DELETE,
+            Element::EVENT_AFTER_DELETE,
             function(Event $event) {
                 $this->handleTrigger(TriggerEvents::EVENT_ENTRY_DELETE, ['entry' => $event->sender]);
             }
@@ -206,6 +206,14 @@ class EmailService extends Component
                             'newStatus' => $event->newStatus,
                         ]
                     );
+                }
+            );
+
+            Event::on(
+                \craft\commerce\elements\Order::class,
+                \craft\commerce\elements\Order::EVENT_AFTER_DELETE_ORDER,
+                function(Event $event) {
+                    $this->handleTrigger(TriggerEvents::EVENT_COMMERCE_ORDER_DELETE, ['order' => $event->sender]);
                 }
             );
         }

@@ -3,11 +3,17 @@
 namespace frontendservices\mailcraft\controllers;
 
 use Craft;
+use craft\errors\ElementNotFoundException;
+use craft\errors\MissingComponentException;
 use craft\web\Controller;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\MailCraft;
+use Throwable;
+use yii\base\Exception;
+use yii\web\BadRequestHttpException;
 use yii\web\ForbiddenHttpException;
+use yii\web\MethodNotAllowedHttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 
@@ -46,7 +52,7 @@ class EmailTemplatesController extends Controller
     {
         $this->requirePermission('mailcraft:manageEmailTemplates');
 
-        return $this->actionEdit(null, null);
+        return $this->actionEdit();
     }
 
     /**
@@ -75,6 +81,9 @@ class EmailTemplatesController extends Controller
 
     /**
      * Save an email template
+     * @throws MethodNotAllowedHttpException
+     * @throws NotFoundHttpException
+     * @throws MissingComponentException|BadRequestHttpException
      */
     public function actionSave(): ?Response
     {
@@ -110,20 +119,31 @@ class EmailTemplatesController extends Controller
         $emailTemplate->condition2 = $this->request->getBodyParam('condition2');
 
         // Save the email template
-        if (!Craft::$app->elements->saveElement($emailTemplate)) {
-            if ($this->request->getAcceptsJson()) {
-                return $this->asJson([
-                    'success' => false,
-                    'errors' => $emailTemplate->getErrors(),
+        try {
+            if (!Craft::$app->elements->saveElement($emailTemplate)) {
+                if ($this->request->getAcceptsJson()) {
+                    return $this->asJson([
+                        'success' => false,
+                        'errors' => $emailTemplate->getErrors(),
+                    ]);
+                }
+
+                Craft::$app->getSession()->setError(Craft::t('mailcraft', 'Couldn\'t save email template.'));
+
+                // Send the email template back to the template
+                Craft::$app->getUrlManager()->setRouteParams([
+                    'emailTemplate' => $emailTemplate,
                 ]);
+
+                return null;
             }
-
-            Craft::$app->getSession()->setError(Craft::t('mailcraft', 'Couldn\'t save email template.'));
-
-            // Send the email template back to the template
-            Craft::$app->getUrlManager()->setRouteParams([
-                'emailTemplate' => $emailTemplate,
-            ]);
+        } catch (ElementNotFoundException $e) {
+            throw new NotFoundHttpException($e->getMessage());
+        } catch (Exception $e) {
+            throw new MissingComponentException($e->getMessage());
+        } catch (Throwable $e) {
+            Craft::error('An error occurred when saving an email template: ' . $e->getMessage(), __METHOD__);
+            Craft::$app->getSession()->setError(Craft::t('mailcraft', 'An error occurred when saving the email template.'));
 
             return null;
         }
@@ -143,6 +163,10 @@ class EmailTemplatesController extends Controller
 
     /**
      * Delete an email template
+     * @throws NotFoundHttpException
+     * @throws MethodNotAllowedHttpException
+     * @throws BadRequestHttpException
+     * @throws Throwable
      */
     public function actionDelete(): Response
     {
@@ -165,6 +189,8 @@ class EmailTemplatesController extends Controller
 
     /**
      * Preview an email template
+     * @throws MethodNotAllowedHttpException
+     * @throws BadRequestHttpException|NotFoundHttpException
      */
     public function actionPreview(): Response
     {
@@ -188,7 +214,7 @@ class EmailTemplatesController extends Controller
                 'success' => true,
                 'html' => $html,
             ]);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return $this->asJson([
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -196,6 +222,9 @@ class EmailTemplatesController extends Controller
         }
     }
 
+    /**
+     * @throws BadRequestHttpException
+     */
     public function actionGetExamples(): Response
     {
         $this->requireAcceptsJson();

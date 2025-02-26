@@ -38,6 +38,8 @@ class TemplateHelper
             case TriggerEvents::EVENT_USER_CREATE:
             case TriggerEvents::EVENT_USER_UPDATE:
             case TriggerEvents::EVENT_USER_VERIFY:
+            case TriggerEvents::EVENT_USER_LOGIN:
+            case TriggerEvents::EVENT_USER_DELETE:
                 $variables['user'] = [
                     'type' => 'User',
                     'description' => 'User model',
@@ -70,6 +72,7 @@ class TemplateHelper
                 break;
 
             case TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE:
+            case TriggerEvents::EVENT_COMMERCE_ORDER_DELETE:
                 $variables['order'] = [
                     'type' => 'Order',
                     'description' => 'Commerce order model',
@@ -128,6 +131,8 @@ class TemplateHelper
             case TriggerEvents::EVENT_USER_CREATE:
             case TriggerEvents::EVENT_USER_UPDATE:
             case TriggerEvents::EVENT_USER_VERIFY:
+            case TriggerEvents::EVENT_USER_LOGIN:
+            case TriggerEvents::EVENT_USER_DELETE:
                 $data['user'] = User::find()->one() ?? new User([
                     'email' => 'sample@example.com',
                     'username' => 'sampleuser',
@@ -149,6 +154,7 @@ class TemplateHelper
             // Add Commerce examples if plugin is installed
             case TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE:
             case TriggerEvents::EVENT_COMMERCE_ORDER_STATUS:
+            case TriggerEvents::EVENT_COMMERCE_ORDER_DELETE:
                 if (class_exists('craft\commerce\elements\Order')) {
                     $data['order'] = new \craft\commerce\elements\Order([
                         'number' => 'SAMPLE-001',
