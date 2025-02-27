@@ -16,6 +16,7 @@ use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\Event;
 use yii\base\Exception;
+use yii\base\InvalidConfigException;
 use yii\base\Model;
 
 /**
@@ -39,6 +40,9 @@ class EmailService extends Component
         if (!Craft::$app->getRequest()->getIsConsoleRequest()) {
             $this->attachEventHandlers();
         }
+
+        $this->registerEventHandlers();
+
     }
 
     /**
@@ -101,6 +105,28 @@ class EmailService extends Component
     }
 
     /**
+     * Register event handlers
+     * @throws InvalidConfigException
+     */
+    private function registerEventHandlers(): void
+    {
+        $module = \Craft::$app->getModule('mailcraft');
+        if (!$module) {
+            throw new \yii\base\InvalidConfigException('Mailcraft module is not loaded');
+        }
+        $registry = $module->get('eventRegistry');
+        if (!$registry) {
+            throw new \yii\base\InvalidConfigException('EventRegistry service is not loaded');
+        }
+
+        foreach ($registry->getProviders() as $provider) {
+            $provider->registerEventListener(function(array $variables) use ($provider) {
+                $this->handleTrigger($provider->getEventId(), $variables);
+            });
+        }
+    }
+
+    /**
      * Render a string with variables
      */
     private function renderString(?string $string, array $variables = []): ?string
@@ -150,18 +176,18 @@ class EmailService extends Component
                     !$entry->propagating
                 ) {
                     $this->handleTrigger(TriggerEvents::EVENT_ENTRY_CREATE, ['entry' => $entry]);
-                // TriggerEvents::EVENT_ENTRY_UPDATE
-                } elseif (
-                    !($entry->getIsDraft()) &&
-                    !($entry->duplicateOf && $entry->getIsCanonical() && !$entry->updatingFromDerivative) &&
-                    ($entry->enabled && $entry->getEnabledForSite()) &&
-                    !$entry->firstSave &&
-                    !$entry->propagating &&
-                    !$entry->isProvisionalDraft &&
-                    !$entry->resaving &&
-                    !($entry->getIsRevision())
-                ) {
-                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_UPDATE, ['entry' => $entry]);
+//                // TriggerEvents::EVENT_ENTRY_UPDATE
+//                } elseif (
+//                    !($entry->getIsDraft()) &&
+//                    !($entry->duplicateOf && $entry->getIsCanonical() && !$entry->updatingFromDerivative) &&
+//                    ($entry->enabled && $entry->getEnabledForSite()) &&
+//                    !$entry->firstSave &&
+//                    !$entry->propagating &&
+//                    !$entry->isProvisionalDraft &&
+//                    !$entry->resaving &&
+//                    !($entry->getIsRevision())
+//                ) {
+//                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_UPDATE, ['entry' => $entry]);
                 }
             }
         );

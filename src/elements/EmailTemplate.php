@@ -12,6 +12,7 @@ use frontendservices\mailcraft\elements\db\EmailTemplateQuery;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\records\EmailTemplateRecord;
+use yii\base\InvalidConfigException;
 use yii\db\Exception;
 
 /**
@@ -111,6 +112,7 @@ class EmailTemplate extends Element
 
     /**
      * @inheritdoc
+     * @throws InvalidConfigException
      */
     protected function defineRules(): array
     {
@@ -119,7 +121,7 @@ class EmailTemplate extends Element
         $rules[] = [['title', 'subject', 'to', 'event', 'template'], 'required'];
         $rules[] = [['title', 'subject'], 'string', 'max' => 255];
         $rules[] = ['delay', 'integer', 'min' => 0];
-        $rules[] = ['event', 'in', 'range' => TriggerEvents::getAvailableEventsList()];
+        $rules[] = ['event', 'in', 'range' => Craft::$app->getModule('mailcraft')->get('eventRegistry')->getAvailableEventsList()];
         $rules[] = ['conditions', 'string'];
 
         return $rules;

@@ -28,14 +28,23 @@ class MailCraftVariable
      */
     public function getAvailableEventsForOptions(): array
     {
-        $events = TriggerEvents::getAvailableEvents();
+        $module = Craft::$app->getModule('mailcraft');
+        if (!$module) {
+            return [];
+        }
 
+        $registry = $module->get('eventRegistry');
+        if (!$registry) {
+            return [];
+        }
+
+        $events = $registry->getAllEvents();
         $options = [];
 
-        foreach ($events as $group => $event) {
+        foreach ($events as $group => $groupEvents) {
             $options[] = ['optgroup' => $group];
 
-            foreach ($event as $key => $details) {
+            foreach ($groupEvents as $key => $details) {
                 $options[] = [
                     'label' => $details['label'],
                     'value' => $key,

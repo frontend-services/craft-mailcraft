@@ -6,7 +6,6 @@ class TriggerEvents
 {
     // Entry events
     public const EVENT_ENTRY_CREATE = 'entry.create';
-    public const EVENT_ENTRY_UPDATE = 'entry.update';
     public const EVENT_ENTRY_DELETE = 'entry.delete';
 
     // User events
@@ -30,10 +29,6 @@ class TriggerEvents
     public const EVENT_DETAILS = [
         self::EVENT_ENTRY_CREATE => [
             'label' => 'When Entry is Created',
-            'group' => 'entries',
-        ],
-        self::EVENT_ENTRY_UPDATE => [
-            'label' => 'When Entry is Updated',
             'group' => 'entries',
         ],
         self::EVENT_ENTRY_DELETE => [

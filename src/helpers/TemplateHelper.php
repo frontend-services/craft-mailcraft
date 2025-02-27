@@ -10,6 +10,31 @@ use frontendservices\mailcraft\events\TriggerEvents;
 class TemplateHelper
 {
     /**
+     * Get general variables
+     */
+    public static function getGeneralVariables(): array
+    {
+        return [
+            $variables = [
+                'now' => [
+                    'type' => 'DateTime',
+                    'description' => 'Current date/time',
+                    'example' => '{{ now|date("Y-m-d") }}'
+                ],
+                'siteUrl' => [
+                    'type' => 'string',
+                    'description' => 'Site URL',
+                    'example' => '{{ siteUrl }}'
+                ],
+                'siteName' => [
+                    'type' => 'string',
+                    'description' => 'Site name',
+                    'example' => '{{ siteName }}'
+                ]
+            ]
+        ];
+    }
+    /**
      * Get available variables for an event
      */
     public static function getEventVariables(string $event): array
@@ -55,7 +80,6 @@ class TemplateHelper
                 break;
 
             case TriggerEvents::EVENT_ENTRY_CREATE:
-            case TriggerEvents::EVENT_ENTRY_UPDATE:
             case TriggerEvents::EVENT_ENTRY_DELETE:
                 $variables['entry'] = [
                     'type' => 'Entry',
@@ -142,7 +166,6 @@ class TemplateHelper
                 break;
 
             case TriggerEvents::EVENT_ENTRY_CREATE:
-            case TriggerEvents::EVENT_ENTRY_UPDATE:
             case TriggerEvents::EVENT_ENTRY_DELETE:
                 $data['entry'] = Entry::find()->one() ?? new Entry([
                     'title' => 'Sample Entry',

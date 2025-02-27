@@ -12,9 +12,11 @@ use craft\services\UserPermissions;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
 use frontendservices\mailcraft\models\Settings;
 use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\EmailService;
+use frontendservices\mailcraft\services\EventRegistry;
 use frontendservices\mailcraft\variables\MailCraftVariable;
 use yii\base\Event;
 
@@ -27,6 +29,8 @@ use yii\base\Event;
  * @copyright frontend.services
  * @license https://craftcms.github.io/license/ Craft License
  * @property-read EmailService $emailService
+ * @property-read null|array $cpNavItem
+ * @property-read \frontendservices\mailcraft\models\Settings $settings
  * @property-read ConditionService $conditionService
  */
 class MailCraft extends Plugin
@@ -36,7 +40,7 @@ class MailCraft extends Plugin
     public bool $hasCpSection = true;
 
     // Whether the plugin has editions
-    public bool $hasEditions = true;
+    public bool $hasEditions = false;
 
     // Edition constants
     public const EDITION_STANDARD = 'standard';
@@ -65,13 +69,13 @@ class MailCraft extends Plugin
     {
         parent::init();
 
+        Craft::$app->setModule('mailcraft', $this);
+
         // Register components
         $this->setComponents([
             'emailService' => EmailService::class,
+            'eventRegistry' => EventRegistry::class,
         ]);
-
-        $emailService = $this->get('emailService');
-        $emailService->init();
 
         // Register variable
         Event::on(
@@ -82,15 +86,17 @@ class MailCraft extends Plugin
             }
         );
 
-        // Register event handlers
-        $this->attachEventHandlers();
-
         // Defer potentially conflicting initializations
         Craft::$app->onInit(function() {
             $this->registerCpRoutes();
             $this->registerElementTypes();
             $this->registerPermissions();
         });
+        
+        $this->registerProviders();
+
+        $emailService = $this->get('emailService');
+        $emailService->init();
     }
 
     protected function createSettingsModel(): ?Model
@@ -106,18 +112,12 @@ class MailCraft extends Plugin
         ]);
     }
 
-    private function attachEventHandlers(): void
+    private function registerProviders(): void
     {
-        // Register CP URLs
-        // Event::on(
-        //     UrlManager::class,
-        //     UrlManager::EVENT_REGISTER_CP_URL_RULES,
-        //     function(RegisterUrlRulesEvent $event) {
-        //         $event->rules['mailcraft'] = 'mailcraft/email-templates/index';
-        //         $event->rules['mailcraft/email-templates/new'] = 'mailcraft/email-templates/edit';
-        //         $event->rules['mailcraft/email-templates/<templateId:\d+>'] = 'mailcraft/email-templates/edit';
-        //     }
-        // );
+        $registry = $this->get('eventRegistry');
+        if ($registry) {
+            $registry->registerProvider(new EntryUpdateEventProvider());
+        }
     }
 
     private function registerCpRoutes(): void
