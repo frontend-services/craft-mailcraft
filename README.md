@@ -41,7 +41,7 @@ Have an idea for a new trigger or feature? We welcome your suggestions!
 
 Feel free to:
 - Open an issue on [GitHub](https://github.com/frontend-services/craft-mailcraft/issues)
-- Contact us directly at [mato@frontend.services](mailto:mato@frontend.services)
+- Contact us directly at https://mailcraft.dev
 - Submit a pull request if you've implemented something you think would benefit others
 
 We're actively developing MailCraft and value community input on which features to prioritize.
