@@ -37,15 +37,7 @@
                     instructions: "Choose a template example to start with"|t('mailcraft'),
                     id: 'example-selector',
                     name: 'example',
-                    options: [
-                        { value: '', label: 'Select an example...' },
-                        { value: 'user_welcome', label: 'Welcome Email' },
-                        { value: 'verify_email', label: 'Email Verification' },
-                        { value: 'new_entry', label: 'New Entry Notification' },
-                        { value: 'order_complete', label: 'Order Confirmation' },
-                        { value: 'order_status', label: 'Order Status Update' },
-                        { value: 'password_reset', label: 'Password Reset' }
-                    ]
+                    options: exampleTemplates,
                 }) }}
             {% endif %}
 

@@ -6,8 +6,8 @@ use Craft;
 use craft\errors\ElementNotFoundException;
 use craft\errors\MissingComponentException;
 use craft\web\Controller;
+use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
-use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\MailCraft;
 use Throwable;
 use yii\base\Exception;
@@ -34,6 +34,7 @@ class EmailTemplatesController extends Controller
 
     /**
      * Email templates index
+     *
      * @throws ForbiddenHttpException
      */
     public function actionIndex(): Response
@@ -57,10 +58,14 @@ class EmailTemplatesController extends Controller
 
     /**
      * Edit an email template
+     *
      * @throws NotFoundHttpException
+     * @throws ForbiddenHttpException
      */
     public function actionEdit(?int $templateId = null, ?EmailTemplate $emailTemplate = null): Response
     {
+        $this->requireAdmin();
+
         // Get the email template if one was provided
         if ($emailTemplate === null && $templateId !== null) {
             $emailTemplate = EmailTemplate::findOne($templateId);
@@ -76,18 +81,22 @@ class EmailTemplatesController extends Controller
 
         return $this->renderTemplate('mailcraft/email-templates/_edit', [
             'emailTemplate' => $emailTemplate,
+            'exampleTemplates' => MailCraft::getInstance()->eventRegistry->getSampleEmails(),
         ]);
     }
 
     /**
      * Save an email template
+     *
      * @throws MethodNotAllowedHttpException
      * @throws NotFoundHttpException
      * @throws MissingComponentException|BadRequestHttpException
+     * @throws ForbiddenHttpException
      */
     public function actionSave(): ?Response
     {
         $this->requirePostRequest();
+        $this->requireAdmin();
 
         $templateId = $this->request->getBodyParam('templateId');
 
@@ -163,6 +172,7 @@ class EmailTemplatesController extends Controller
 
     /**
      * Delete an email template
+     *
      * @throws NotFoundHttpException
      * @throws MethodNotAllowedHttpException
      * @throws BadRequestHttpException
@@ -171,6 +181,7 @@ class EmailTemplatesController extends Controller
     public function actionDelete(): Response
     {
         $this->requirePostRequest();
+        $this->requireAdmin();
         $this->requireAcceptsJson();
 
         $templateId = $this->request->getRequiredBodyParam('id');
@@ -189,12 +200,15 @@ class EmailTemplatesController extends Controller
 
     /**
      * Preview an email template
+     *
      * @throws MethodNotAllowedHttpException
      * @throws BadRequestHttpException|NotFoundHttpException
+     * @throws ForbiddenHttpException
      */
     public function actionPreview(): Response
     {
         $this->requirePostRequest();
+        $this->requireAdmin();
         $this->requireAcceptsJson();
 
         $templateId = $this->request->getRequiredBodyParam('id');
@@ -223,65 +237,25 @@ class EmailTemplatesController extends Controller
     }
 
     /**
+     * Get examples for all email templates
+     * 
      * @throws BadRequestHttpException
+     * @throws ForbiddenHttpException
+     * @throws MethodNotAllowedHttpException
      */
     public function actionGetExamples(): Response
     {
         $this->requireAcceptsJson();
-        // admin only
         $this->requireAdmin();
         $this->requirePostRequest();
 
         $providers = MailCraft::getInstance()->eventRegistry->getProviders();
         $examples = [];
         foreach ($providers as $provider) {
-            $examples[$provider->getEventId()] = [
-                'title' => $provider->getEventName(),
-                'subject' => $provider->getEventSubject(),
-                'event' => $provider->getEventId(),
-                'template' => $provider->getEventTemplate(),
-            ];
+            /* @var AbstractEventProvider $provider */
+            $examples[$provider->getEventId()] = $provider->getTemplateExample();
         }
-//
-//        $examples = [
-//            'user_welcome' => [
-//                'title' => 'Welcome Email',
-//                'subject' => 'Welcome to {siteName}!',
-//                'event' => TriggerEvents::EVENT_USER_CREATE,
-//                'template' => '<p>Welcome to {siteName}!</p>'
-//            ],
-//            'verify_email' => [
-//                'title' => 'Email Verification',
-//                'subject' => 'Please Verify Your Email',
-//                'event' => TriggerEvents::EVENT_USER_VERIFY,
-//                'template' => '<p>Please verify your email by clicking the link below.</p>'
-//            ],
-//            'new_entry' => [
-//                'title' => 'New Entry Notification',
-//                'subject' => 'New Content: {entry.title}',
-//                'event' => TriggerEvents::EVENT_ENTRY_CREATE,
-//                'template' => '<p>New content has been published: {entry.title}</p>'
-//            ],
-//            'order_complete' => [
-//                'title' => 'Order Confirmation',
-//                'subject' => 'Order Confirmation #{order.number}',
-//                'event' => TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE,
-//                'template' => '<p>Your order #{order.number} has been confirmed.</p>'
-//            ],
-//            'order_status' => [
-//                'title' => 'Order Status Update',
-//                'subject' => 'Order Status Update #{order.number}',
-//                'event' => TriggerEvents::EVENT_COMMERCE_ORDER_STATUS,
-//                'template' => '<p>The status of your order #{order.number} has been updated.</p>'
-//            ],
-//            'password_reset' => [
-//                'title' => 'Password Reset',
-//                'subject' => 'Password Reset Request',
-//                'event' => TriggerEvents::EVENT_USER_VERIFY,
-//                'template' => '<p>Click the link below to reset your password.</p>'
-//            ]
-//        ];
-//
-//        return $this->asJson($examples);
+
+        return $this->asJson($examples);
     }
 }

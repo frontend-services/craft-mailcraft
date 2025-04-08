@@ -31,10 +31,10 @@ class EventRegistry extends Component
      * @param string $eventId
      * @return AbstractEventProvider|null
      */
-    public function getProvider(string $eventId): ?AbstractEventProvider
-    {
-        return $this->providers[$eventId] ?? null;
-    }
+//    public function getProvider(string $eventId): ?AbstractEventProvider
+//    {
+//        return $this->providers[$eventId] ?? null;
+//    }
 
     /**
      * Get all registered events.
@@ -55,20 +55,20 @@ class EventRegistry extends Component
         return $events;
     }
 
-    public function getSampleData(string $eventId): array
-    {
-        return $this->getProvider($eventId)?->getSampleData() ?? [];
-    }
+//    public function getSampleData(string $eventId): array
+//    {
+//        return $this->getProvider($eventId)?->getSampleData() ?? [];
+//    }
 
-    public function getTemplateVariables(string $eventId): array
-    {
-        return $this->getProvider($eventId)?->getTemplateVariables() ?? [];
-    }
+//    public function getTemplateVariables(string $eventId): array
+//    {
+//        return $this->getProvider($eventId)?->getTemplateVariables() ?? [];
+//    }
 
-    public function getTemplateExample(string $eventId): array
-    {
-        return $this->getProvider($eventId)?->getTemplateExample() ?? [];
-    }
+//    public function getTemplateExample(string $eventId): array
+//    {
+//        return $this->getProvider($eventId)?->getTemplateExample() ?? [];
+//    }
 
     public function getProviders(): array
     {
@@ -78,5 +78,27 @@ class EventRegistry extends Component
     public function getAvailableEventsList(): array
     {
         return array_keys($this->providers);
+    }
+
+    /**
+     * Get all sample emails
+     */
+    public function getSampleEmails(): array
+    {
+        $sampleEmails = [
+            [
+                'value' => '',
+                'label' => 'Select an example...',
+            ],
+        ];
+        foreach ($this->providers as $provider) {
+            /* @var $provider AbstractEventProvider */
+            $templateExample = $provider->getTemplateExample();
+            $sampleEmails[] = [
+                'value' => $provider->getEventId(),
+                'label' => $templateExample['title'],
+            ];
+        }
+        return $sampleEmails;
     }
 }

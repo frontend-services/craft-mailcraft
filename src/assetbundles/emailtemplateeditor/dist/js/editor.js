@@ -3,13 +3,12 @@
 
     var EditorInstance = null;
 
+    // ignore phpstorm warning "Void function return value is used "
+    // noinspection JSUnusedGlobalSymbols
     Craft.MailCraftEditor = Garnish.Base.extend({
         init: function(settings) {
             this.settings = settings;
             this.$editor = $('#template');
-
-            // Initialize CodeMirror
-            // this.initCodeMirror();
 
             // Initialize variable suggestions
             this.initVariableSuggestions();
@@ -18,30 +17,9 @@
             if (settings.templateId) {
                 new Craft.MailCraftPreview(settings.templateId);
             }
-            // new Craft.MailCraftEventFields();
 
             // Initialize example selector
             this.initExampleSelector();
-        },
-
-        initCodeMirror: function() {
-            if (this.$editor.length) {
-                this.editor = CodeMirror.fromTextArea(this.$editor[0], {
-                    mode: 'twig',
-                    theme: 'craft',
-                    lineNumbers: true,
-                    lineWrapping: true,
-                    viewportMargin: Infinity,
-                    indentUnit: 4,
-                    indentWithTabs: false,
-                    matchBrackets: true,
-                    autoCloseBrackets: true,
-                    autoCloseTags: true,
-                    extraKeys: {
-                        'Ctrl-Space': 'autocomplete'
-                    }
-                });
-            }
         },
 
         initVariableSuggestions: function() {
@@ -66,8 +44,22 @@
                         if (response && response[example]) {
                             $('#title').val(response[example].title);
                             $('#subject').val(response[example].subject);
-                            $('#event').val(response[example].event).trigger('change');
-                            EditorInstance.editor.setValue(response[example].template);
+                            // $('#event').val(response[example].id).trigger('change');
+                            $('#event')[0].selectize.setValue(response[example].id);
+
+                            const template = document.querySelector('#template');
+                            // if template is textarea, set value directly
+                            if (template.tagName === 'TEXTAREA') {
+                                template.innerHTML = response[example].template;
+                                // check if there's a ckeditor next to the textarea
+                                const ckeditorWrapper = template.nextElementSibling;
+                                if (ckeditorWrapper && ckeditorWrapper.classList.contains('ck-editor')) {
+                                    const editor = ckeditorWrapper.querySelector('.ck-editor__editable');
+                                    if (editor && editor.ckeditorInstance) {
+                                        editor.ckeditorInstance.setData(response[example].template);
+                                    }
+                                }
+                            }
                         }
                     });
                 });

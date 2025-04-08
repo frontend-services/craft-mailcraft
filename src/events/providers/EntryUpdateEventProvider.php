@@ -12,19 +12,28 @@ use yii\base\ModelEvent;
 
 class EntryUpdateEventProvider extends AbstractEventProvider
 {
+    /**
+     * @inheritDoc
+     */
     public function getEventId(): string
     {
         return 'entry.update';
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getEventDetails(): array
     {
         return [
             'label' => 'When Entry is Updated',
-            'group' => 'entries',
+            'group' => 'Entries',
         ];
     }
 
+    /**
+     * @inheritDoc
+     */
     public function registerEventListener(callable $handler): void
     {
         Event::on(
@@ -49,17 +58,21 @@ class EntryUpdateEventProvider extends AbstractEventProvider
         );
     }
 
-    public function getSampleData(): array
-    {
-        return [
-            'entry' => Entry::find()->one() ?? new Entry([
-                'title' => 'Sample Entry',
-                'url' => '/sample-entry',
-                'sectionId' => 1
-            ])
-        ];
-    }
+//    public function getSampleData(): array
+//    {
+//        return [
+//            'entry' => Entry::find()->one() ?? new Entry([
+//                'title' => 'Sample Entry',
+//                'url' => '/sample-entry',
+//                'sectionId' => 1
+//            ])
+//        ];
+//    }
 
+
+    /**
+     * @inheritDoc
+     */
     public function getTemplateVariables(): array
     {
         $variables = TemplateHelper::getGeneralVariables();
@@ -78,15 +91,24 @@ class EntryUpdateEventProvider extends AbstractEventProvider
         return $variables;
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getTemplateExample(): array
     {
         return [
+            'id' => $this->getEventId(),
             'title' => 'Entry Update Notification',
             'subject' => 'Content Updated: {{entry.title}}',
-            'template' => '<p>The entry <a href="{{entry.url}}">{{entry.title}}</a> has been updated.</p>'
+            'template' => '<h1>Entry Updated</h1>
+<p>The entry "{{entry.title}}" has been updated.</p>
+<p>View it <a href="{{entry.url}}">here</a>.</p>',
         ];
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getConditions(): array
     {
         return [
@@ -105,11 +127,7 @@ class EntryUpdateEventProvider extends AbstractEventProvider
     }
 
     /**
-     * Test conditions to see if element is legible for sending
-     *
-     * @param $template
-     * @param $variables
-     * @return bool
+     * @inheritDoc
      */
     public function testConditions($template, $variables): bool
     {

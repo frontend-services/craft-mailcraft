@@ -43,7 +43,10 @@ class MailCraftVariable
         }
 
         $events = $registry->getAllEvents();
-        $options = [];
+        $options = [
+            'label' => Craft::t('mailcraft', 'Select an event'),
+            'value' => '',
+        ];
 
         foreach ($events as $group => $groupEvents) {
             $options[] = ['optgroup' => $group];

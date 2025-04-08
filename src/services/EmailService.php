@@ -4,22 +4,14 @@ namespace frontendservices\mailcraft\services;
 
 use Craft;
 use craft\base\Component;
-use craft\base\Element;
-use craft\elements\Entry;
-use craft\elements\User;
-use craft\events\ModelEvent;
 use craft\mail\Message;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
-use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\jobs\SendEmailJob;
 use frontendservices\mailcraft\MailCraft;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
-use yii\base\Event;
-use yii\base\Exception;
 use yii\base\InvalidConfigException;
-use yii\base\Model;
 
 /**
  * Email Service
