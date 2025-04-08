@@ -15,8 +15,10 @@ use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
+use frontendservices\mailcraft\events\providers\UserActivateEventProvider;
 use frontendservices\mailcraft\events\providers\UserCreateEventProvider;
-use frontendservices\mailcraft\events\providers\UserValidateEventProvider;
+use frontendservices\mailcraft\events\providers\UserUpdateEventProvider;
+use frontendservices\mailcraft\events\providers\UserVerifyEmailEventProvider;
 use frontendservices\mailcraft\models\Settings;
 use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\EmailService;
@@ -141,7 +143,9 @@ class MailCraft extends Plugin
 
             if (Craft::$app->edition === CmsEdition::Pro) {
                 $registry->registerProvider(new UserCreateEventProvider());
-                $registry->registerProvider(new UserValidateEventProvider());
+                $registry->registerProvider(new UserVerifyEmailEventProvider());
+                $registry->registerProvider(new UserUpdateEventProvider());
+                $registry->registerProvider(new UserActivateEventProvider());
             }
         }
     }

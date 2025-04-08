@@ -3,20 +3,21 @@ namespace frontendservices\mailcraft\events\providers;
 
 use Craft;
 use craft\elements\User;
+use craft\events\UserEvent;
+use craft\services\Users;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\MailCraft;
 use yii\base\Event;
-use yii\base\ModelEvent;
 
-class UserCreateEventProvider extends AbstractEventProvider
+class UserVerifyEmailEventProvider extends AbstractEventProvider
 {
     /**
      * @inheritDoc
      */
     public function getEventId(): string
     {
-        return 'user.create';
+        return 'user.verifyEmail';
     }
 
     /**
@@ -25,7 +26,7 @@ class UserCreateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User is Created',
+            'label' => 'When User Verifies Email',
             'group' => 'Users',
         ];
     }
@@ -36,18 +37,11 @@ class UserCreateEventProvider extends AbstractEventProvider
     public function registerEventListener(callable $handler): void
     {
         Event::on(
-            User::class,
-            User::EVENT_AFTER_SAVE,
-            static function(ModelEvent $event) use ($handler) {
-                /** @var User $user */
-                $user = $event->sender;
-                if (
-                    !$user->getIsDraft() &&
-                    $user->firstSave &&
-                    !$user->propagating
-                ) {
-                    $handler(['user' => $user]);
-                }
+            Users::class,
+            Users::EVENT_AFTER_VERIFY_EMAIL,
+            static function(UserEvent $event) use ($handler) {
+                $user = $event->user;
+                $handler(['user' => $user]);
             }
         );
     }
@@ -66,7 +60,7 @@ class UserCreateEventProvider extends AbstractEventProvider
                 'email' => 'Email address',
                 'firstName' => 'First name',
                 'lastName' => 'Last name',
-            ]
+            ],
         ];
 
         return $variables;
@@ -79,11 +73,11 @@ class UserCreateEventProvider extends AbstractEventProvider
     {
         return [
             'id' => $this->getEventId(),
-            'title' => 'User Create Notification',
-            'subject' => 'New User: {{user.username}}',
-            'template' => '<h1>New User Created</h1>
-<p>A new user "{{user.username}}" with email "{{user.email}}" has been created.</p>
-<p>View user details <a href="{{user.cpEditUrl}}">here</a>',
+            'title' => 'User Verification Notification',
+            'subject' => 'Email Verified: {{user.username}}',
+            'template' => '<h1>Email Verified</h1>
+<p>The user "{{user.username}}" with email "{{user.email}}" has verified their email.</p>
+<p>View user details <a href="{{user.cpEditUrl}}">here</a>.</p>',
         ];
     }
 

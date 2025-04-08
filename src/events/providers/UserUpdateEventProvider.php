@@ -9,14 +9,14 @@ use frontendservices\mailcraft\MailCraft;
 use yii\base\Event;
 use yii\base\ModelEvent;
 
-class UserCreateEventProvider extends AbstractEventProvider
+class UserUpdateEventProvider extends AbstractEventProvider
 {
     /**
      * @inheritDoc
      */
     public function getEventId(): string
     {
-        return 'user.create';
+        return 'user.update';
     }
 
     /**
@@ -25,7 +25,7 @@ class UserCreateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User is Created',
+            'label' => 'When User is Updated',
             'group' => 'Users',
         ];
     }
@@ -43,7 +43,7 @@ class UserCreateEventProvider extends AbstractEventProvider
                 $user = $event->sender;
                 if (
                     !$user->getIsDraft() &&
-                    $user->firstSave &&
+                    !$user->firstSave &&
                     !$user->propagating
                 ) {
                     $handler(['user' => $user]);
@@ -79,11 +79,11 @@ class UserCreateEventProvider extends AbstractEventProvider
     {
         return [
             'id' => $this->getEventId(),
-            'title' => 'User Create Notification',
-            'subject' => 'New User: {{user.username}}',
-            'template' => '<h1>New User Created</h1>
-<p>A new user "{{user.username}}" with email "{{user.email}}" has been created.</p>
-<p>View user details <a href="{{user.cpEditUrl}}">here</a>',
+            'title' => 'User Update Notification',
+            'subject' => 'User Updated: {{user.username}}',
+            'template' => '<h1>User Profile Updated</h1>
+<p>The user "{{user.username}}" with email "{{user.email}}" has been updated.</p>
+<p>View user details <a href="{{user.cpEditUrl}}">here</a>.',
         ];
     }
 

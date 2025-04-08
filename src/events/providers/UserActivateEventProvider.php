@@ -2,21 +2,21 @@
 namespace frontendservices\mailcraft\events\providers;
 
 use Craft;
-use craft\elements\User;
+use craft\events\UserEvent;
+use craft\services\Users;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\MailCraft;
 use yii\base\Event;
-use yii\base\ModelEvent;
 
-class UserValidateEventProvider extends AbstractEventProvider
+class UserActivateEventProvider extends AbstractEventProvider
 {
     /**
      * @inheritDoc
      */
     public function getEventId(): string
     {
-        return 'user.validate';
+        return 'user.activate';
     }
 
     /**
@@ -25,7 +25,7 @@ class UserValidateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User is Validated',
+            'label' => 'When User is Activated',
             'group' => 'Users',
         ];
     }
@@ -36,11 +36,10 @@ class UserValidateEventProvider extends AbstractEventProvider
     public function registerEventListener(callable $handler): void
     {
         Event::on(
-            User::class,
-            User::EVENT_AFTER_VALIDATE,
-            static function(ModelEvent $event) use ($handler) {
-                /** @var User $user */
-                $user = $event->sender;
+            Users::class,
+            Users::EVENT_AFTER_ACTIVATE_USER,
+            static function(UserEvent $event) use ($handler) {
+                $user = $event->user;
                 $handler(['user' => $user]);
             }
         );
@@ -60,8 +59,7 @@ class UserValidateEventProvider extends AbstractEventProvider
                 'email' => 'Email address',
                 'firstName' => 'First name',
                 'lastName' => 'Last name',
-                'errors' => 'Validation errors',
-            ]
+            ],
         ];
 
         return $variables;
@@ -74,10 +72,11 @@ class UserValidateEventProvider extends AbstractEventProvider
     {
         return [
             'id' => $this->getEventId(),
-            'title' => 'User Validation Notification',
-            'subject' => 'Thank you for becoming a member, {{user.username}}!',
-            'template' => '<h1>Welcome, {{user.username}}</h1>
-<p>Thank you for signing up. Your can edit your profile <a href="{{user.cpEditUrl}}">here</a>.</p>',
+            'title' => 'User Activation Notification',
+            'subject' => 'User Activated: {{user.username}}',
+            'template' => '<h1>User Activated</h1>
+<p>The user "{{user.username}}" with email "{{user.email}}" has been activated.</p>
+<p>View user details <a href="{{user.cpEditUrl}}">here</a>.</p>',
         ];
     }
 
