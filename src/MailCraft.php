@@ -4,6 +4,7 @@ namespace frontendservices\mailcraft;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin;
+use craft\enums\CmsEdition;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
@@ -14,6 +15,8 @@ use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
+use frontendservices\mailcraft\events\providers\UserCreateEventProvider;
+use frontendservices\mailcraft\events\providers\UserValidateEventProvider;
 use frontendservices\mailcraft\models\Settings;
 use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\EmailService;
@@ -135,6 +138,11 @@ class MailCraft extends Plugin
         if ($registry) {
             $registry->registerProvider(new EntryUpdateEventProvider());
             $registry->registerProvider(new EntryCreateEventProvider());
+
+            if (Craft::$app->edition === CmsEdition::Pro) {
+                $registry->registerProvider(new UserCreateEventProvider());
+                $registry->registerProvider(new UserValidateEventProvider());
+            }
         }
     }
 

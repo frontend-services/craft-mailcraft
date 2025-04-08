@@ -81,7 +81,7 @@ class ConditionService extends Component
         return $options;
     }
 
-    private function getUserGroups(): array
+    public function getUserGroups(): array
     {
         $groups = Craft::$app->getUserGroups()->getAllGroups();
         $options = [

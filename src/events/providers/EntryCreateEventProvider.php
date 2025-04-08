@@ -115,7 +115,6 @@ class EntryCreateEventProvider extends AbstractEventProvider
      */
     public function testConditions($template, $variables): bool
     {
-        // first test condition1 and condition2 if they exist and are set
         $entry = $variables['entry'] ?? null;
         if (!$entry) {
             return false;
@@ -129,13 +128,12 @@ class EntryCreateEventProvider extends AbstractEventProvider
             return false;
         }
 
-        // now test the extra conditions if they exist (they are set as twig conditions, e.g. `entry.section=="news"`)
         if (isset($template->conditions) && $template->conditions) {
-            $twig = Craft::$app->getView()->renderString($template->conditions, [
+            $twig = Craft::$app->getView()->renderString("{{".$template->conditions."}}", [
                 'entry' => $entry,
             ]);
             try {
-                return Craft::$app->getView()->renderString($twig);
+                return Craft::$app->getView()->renderString($twig) === "1";
             } catch (\Throwable $e) {
                 return false;
             }
