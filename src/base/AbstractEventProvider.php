@@ -9,4 +9,5 @@ abstract class AbstractEventProvider
     abstract public function getTemplateVariables(): array;
     abstract public function getTemplateExample(): array;
     abstract public function registerEventListener(callable $handler): void;
+    abstract public function testConditions($template, $variables): bool;
 }

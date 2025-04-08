@@ -9,9 +9,11 @@ use craft\elements\Entry;
 use craft\elements\User;
 use craft\events\ModelEvent;
 use craft\mail\Message;
+use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\jobs\SendEmailJob;
+use frontendservices\mailcraft\MailCraft;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\Event;
@@ -31,18 +33,19 @@ class EmailService extends Component
 
     /**
      * Initialize email service
+     *
+     * @throws InvalidConfigException
      */
     public function init(): void
     {
         parent::init();
 
         // Attach event handlers if we're not in console
-        if (!Craft::$app->getRequest()->getIsConsoleRequest()) {
-            $this->attachEventHandlers();
-        }
+//        if (!Craft::$app->getRequest()->getIsConsoleRequest()) {
+//            $this->attachEventHandlers();
+//        }
 
         $this->registerEventHandlers();
-
     }
 
     /**
@@ -106,22 +109,16 @@ class EmailService extends Component
 
     /**
      * Register event handlers
+     *
      * @throws InvalidConfigException
      */
     private function registerEventHandlers(): void
     {
-        $module = \Craft::$app->getModule('mailcraft');
-        if (!$module) {
-            throw new \yii\base\InvalidConfigException('Mailcraft module is not loaded');
-        }
-        $registry = $module->get('eventRegistry');
-        if (!$registry) {
-            throw new \yii\base\InvalidConfigException('EventRegistry service is not loaded');
-        }
+        $registry = MailCraft::getInstance()->eventRegistry;
 
         foreach ($registry->getProviders() as $provider) {
             $provider->registerEventListener(function(array $variables) use ($provider) {
-                $this->handleTrigger($provider->getEventId(), $variables);
+                $this->handleTrigger($provider, $variables);
             });
         }
     }
@@ -144,120 +141,20 @@ class EmailService extends Component
         return '';
     }
 
-    /**
-     * Handle all event triggers
-     */
-    private function attachEventHandlers(): void
-    {
-        // User events (Standard)
-        Event::on(
-            User::class,
-            Element::EVENT_AFTER_SAVE,
-            function(ModelEvent $event) {
-                if ($event->isNew) {
-                    $this->handleTrigger(TriggerEvents::EVENT_USER_CREATE, ['user' => $event->sender]);
-                } else {
-                    $this->handleTrigger(TriggerEvents::EVENT_USER_UPDATE, ['user' => $event->sender]);
-                }
-            }
-        );
-
-        // Entry events
-        Event::on(
-            Entry::class,
-            Element::EVENT_AFTER_SAVE,
-            function(ModelEvent $event) {
-                /** @var Entry $entry */
-                $entry = $event->sender;
-                // TriggerEvents::EVENT_ENTRY_CREATE
-                if (
-                    ($entry->enabled && $entry->getEnabledForSite()) &&
-                    $entry->firstSave &&
-                    !$entry->propagating
-                ) {
-                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_CREATE, ['entry' => $entry]);
-//                // TriggerEvents::EVENT_ENTRY_UPDATE
-//                } elseif (
-//                    !($entry->getIsDraft()) &&
-//                    !($entry->duplicateOf && $entry->getIsCanonical() && !$entry->updatingFromDerivative) &&
-//                    ($entry->enabled && $entry->getEnabledForSite()) &&
-//                    !$entry->firstSave &&
-//                    !$entry->propagating &&
-//                    !$entry->isProvisionalDraft &&
-//                    !$entry->resaving &&
-//                    !($entry->getIsRevision())
-//                ) {
-//                    $this->handleTrigger(TriggerEvents::EVENT_ENTRY_UPDATE, ['entry' => $entry]);
-                }
-            }
-        );
-
-        // Entry deletion
-        Event::on(
-            Entry::class,
-            Element::EVENT_AFTER_DELETE,
-            function(Event $event) {
-                $this->handleTrigger(TriggerEvents::EVENT_ENTRY_DELETE, ['entry' => $event->sender]);
-            }
-        );
-
-        // User email verification
-        Event::on(
-            User::class,
-            Model::EVENT_AFTER_VALIDATE,
-            function(Event $event) {
-                $this->handleTrigger(TriggerEvents::EVENT_USER_VERIFY, ['user' => $event->sender]);
-            }
-        );
-
-        // Commerce events (if plugin is installed)
-        if (Craft::$app->plugins->isPluginEnabled('commerce')) {
-            Event::on(
-                \craft\commerce\elements\Order::class,
-                \craft\commerce\elements\Order::EVENT_AFTER_COMPLETE_ORDER,
-                function(Event $event) {
-                    $this->handleTrigger(TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE, ['order' => $event->sender]);
-                }
-            );
-
-            Event::on(
-                \craft\commerce\elements\Order::class,
-                \craft\commerce\elements\Order::EVENT_AFTER_ORDER_STATUS_CHANGE,
-                function(\craft\commerce\events\OrderStatusEvent $event) {
-                    $this->handleTrigger(
-                        TriggerEvents::EVENT_COMMERCE_ORDER_STATUS,
-                        [
-                            'order' => $event->order,
-                            'oldStatus' => $event->oldStatus,
-                            'newStatus' => $event->newStatus,
-                        ]
-                    );
-                }
-            );
-
-            Event::on(
-                \craft\commerce\elements\Order::class,
-                \craft\commerce\elements\Order::EVENT_AFTER_DELETE_ORDER,
-                function(Event $event) {
-                    $this->handleTrigger(TriggerEvents::EVENT_COMMERCE_ORDER_DELETE, ['order' => $event->sender]);
-                }
-            );
-        }
-    }
 
     /**
      * Handle a trigger event
      */
-    private function handleTrigger(string $eventName, array $variables = []): void
+    private function handleTrigger(AbstractEventProvider $provider, array $variables = []): void
     {
         // Find all email templates for this event
         $templates = EmailTemplate::find()
-            ->event($eventName)
+            ->event($provider->getEventId())
             ->status(['enabled'])
             ->all();
 
         foreach ($templates as $template) {
-            if (!$this->testTemplateConditions($template, $variables)) {
+            if (!$provider->testConditions($template, $variables)) {
                 continue;
             }
 
@@ -268,17 +165,17 @@ class EmailService extends Component
     /**
      * Test template conditions
      */
-    private function testTemplateConditions(EmailTemplate $template, mixed $variables = []): bool
-    {
-        if ($template->conditions) {
-            try {
-                return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
-            } catch (Exception|\Throwable $e) {
-                Craft::error('Error with conditions: ' . $e->getMessage(), __METHOD__);
-                return false;
-            }
-        }
-
-        return true;
-    }
+//    private function testTemplateConditions(EmailTemplate $template, mixed $variables = []): bool
+//    {
+//        if (trim($template->conditions)) {
+//            try {
+//                return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
+//            } catch (Exception|\Throwable $e) {
+//                Craft::error('Error with conditions: ' . $e->getMessage(), __METHOD__);
+//                return false;
+//            }
+//        }
+//
+//        return true;
+//    }
 }

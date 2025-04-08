@@ -1,10 +1,12 @@
 <?php
 namespace frontendservices\mailcraft\events\providers;
 
+use Craft;
 use craft\base\Element;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use craft\elements\Entry;
 use frontendservices\mailcraft\helpers\TemplateHelper;
+use frontendservices\mailcraft\MailCraft;
 use yii\base\Event;
 use yii\base\ModelEvent;
 
@@ -83,5 +85,60 @@ class EntryUpdateEventProvider extends AbstractEventProvider
             'subject' => 'Content Updated: {{entry.title}}',
             'template' => '<p>The entry <a href="{{entry.url}}">{{entry.title}}</a> has been updated.</p>'
         ];
+    }
+
+    public function getConditions(): array
+    {
+        return [
+            'condition1' => [
+                'operand' => 'entry.section.handle == condition',
+                'name' => Craft::t('mailcraft', 'Section'),
+                'options' => MailCraft::getInstance()->conditionService->getEntrySections(),
+                'dependant' => true,
+            ],
+            'condition2' => [
+                'operand' => 'entry.type.handle == condition',
+                'name' => Craft::t('mailcraft', 'Entry Type'),
+                'options' => MailCraft::getInstance()->conditionService->getEntryTypes(),
+            ],
+        ];
+    }
+
+    /**
+     * Test conditions to see if element is legible for sending
+     *
+     * @param $template
+     * @param $variables
+     * @return bool
+     */
+    public function testConditions($template, $variables): bool
+    {
+        // first test condition1 and condition2 if they exist and are set
+        $entry = $variables['entry'] ?? null;
+        if (!$entry) {
+            return false;
+        }
+
+        if (isset($template->condition1) && $template->condition1 && $entry->section->handle !== $template->condition1) {
+            return false;
+        }
+
+        if (isset($template->condition2) && $template->condition2 && $entry->type->handle !== $template->condition2) {
+            return false;
+        }
+
+        // now test the extra conditions if they exist (they are set as twig conditions, e.g. `entry.section=="news"`)
+        if (isset($template->conditions) && $template->conditions) {
+            $twig = Craft::$app->getView()->renderString($template->conditions, [
+                'entry' => $entry,
+            ]);
+            try {
+                return Craft::$app->getView()->renderString($twig);
+            } catch (\Throwable $e) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

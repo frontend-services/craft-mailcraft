@@ -110,7 +110,7 @@ class EmailTemplatesController extends Controller
         $emailTemplate->from = $this->request->getBodyParam('from');
         $emailTemplate->fromName = $this->request->getBodyParam('fromName');
         $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
-        $emailTemplate->delay = $this->request->getBodyParam('delay');
+        $emailTemplate->delay = (int)$this->request->getBodyParam('delay');
         $emailTemplate->cc = $this->request->getBodyParam('cc');
         $emailTemplate->bcc = $this->request->getBodyParam('bcc');
         $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
@@ -228,46 +228,60 @@ class EmailTemplatesController extends Controller
     public function actionGetExamples(): Response
     {
         $this->requireAcceptsJson();
+        // admin only
+        $this->requireAdmin();
+        $this->requirePostRequest();
 
-        $examples = [
-            'user_welcome' => [
-                'title' => 'Welcome Email',
-                'subject' => 'Welcome to {siteName}!',
-                'event' => TriggerEvents::EVENT_USER_CREATE,
-                'template' => '<p>Welcome to {siteName}!</p>'
-            ],
-            'verify_email' => [
-                'title' => 'Email Verification',
-                'subject' => 'Please Verify Your Email',
-                'event' => TriggerEvents::EVENT_USER_VERIFY,
-                'template' => '<p>Please verify your email by clicking the link below.</p>'
-            ],
-            'new_entry' => [
-                'title' => 'New Entry Notification',
-                'subject' => 'New Content: {entry.title}',
-                'event' => TriggerEvents::EVENT_ENTRY_CREATE,
-                'template' => '<p>New content has been published: {entry.title}</p>'
-            ],
-            'order_complete' => [
-                'title' => 'Order Confirmation',
-                'subject' => 'Order Confirmation #{order.number}',
-                'event' => TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE,
-                'template' => '<p>Your order #{order.number} has been confirmed.</p>'
-            ],
-            'order_status' => [
-                'title' => 'Order Status Update',
-                'subject' => 'Order Status Update #{order.number}',
-                'event' => TriggerEvents::EVENT_COMMERCE_ORDER_STATUS,
-                'template' => '<p>The status of your order #{order.number} has been updated.</p>'
-            ],
-            'password_reset' => [
-                'title' => 'Password Reset',
-                'subject' => 'Password Reset Request',
-                'event' => TriggerEvents::EVENT_USER_VERIFY,
-                'template' => '<p>Click the link below to reset your password.</p>'
-            ]
-        ];
-
-        return $this->asJson($examples);
+        $providers = MailCraft::getInstance()->eventRegistry->getProviders();
+        $examples = [];
+        foreach ($providers as $provider) {
+            $examples[$provider->getEventId()] = [
+                'title' => $provider->getEventName(),
+                'subject' => $provider->getEventSubject(),
+                'event' => $provider->getEventId(),
+                'template' => $provider->getEventTemplate(),
+            ];
+        }
+//
+//        $examples = [
+//            'user_welcome' => [
+//                'title' => 'Welcome Email',
+//                'subject' => 'Welcome to {siteName}!',
+//                'event' => TriggerEvents::EVENT_USER_CREATE,
+//                'template' => '<p>Welcome to {siteName}!</p>'
+//            ],
+//            'verify_email' => [
+//                'title' => 'Email Verification',
+//                'subject' => 'Please Verify Your Email',
+//                'event' => TriggerEvents::EVENT_USER_VERIFY,
+//                'template' => '<p>Please verify your email by clicking the link below.</p>'
+//            ],
+//            'new_entry' => [
+//                'title' => 'New Entry Notification',
+//                'subject' => 'New Content: {entry.title}',
+//                'event' => TriggerEvents::EVENT_ENTRY_CREATE,
+//                'template' => '<p>New content has been published: {entry.title}</p>'
+//            ],
+//            'order_complete' => [
+//                'title' => 'Order Confirmation',
+//                'subject' => 'Order Confirmation #{order.number}',
+//                'event' => TriggerEvents::EVENT_COMMERCE_ORDER_COMPLETE,
+//                'template' => '<p>Your order #{order.number} has been confirmed.</p>'
+//            ],
+//            'order_status' => [
+//                'title' => 'Order Status Update',
+//                'subject' => 'Order Status Update #{order.number}',
+//                'event' => TriggerEvents::EVENT_COMMERCE_ORDER_STATUS,
+//                'template' => '<p>The status of your order #{order.number} has been updated.</p>'
+//            ],
+//            'password_reset' => [
+//                'title' => 'Password Reset',
+//                'subject' => 'Password Reset Request',
+//                'event' => TriggerEvents::EVENT_USER_VERIFY,
+//                'template' => '<p>Click the link below to reset your password.</p>'
+//            ]
+//        ];
+//
+//        return $this->asJson($examples);
     }
 }

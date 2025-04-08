@@ -144,7 +144,7 @@
         }) }}
 
         {{ forms.textField({
-            label: "Delay"|t('mailcraft'),
+            label: "Delay (s)"|t('mailcraft'),
             instructions: "Delay in seconds before sending the email. For example send an email 2 days after user registers."|t('mailcraft'),
             id: 'delay',
             name: 'delay',
@@ -309,8 +309,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             eventSelect.on('change', (value) => {
                 if (!value) return;
-                const group = value.split('.').shift(); // user
-                const event = value.split('.').pop(); // update
+{#                const group = value.split('.').shift(); // user#}
+{#                const event = value.split('.').pop(); // update#}
 
                 // clear both selects and hide fields
                 condition1Select.clear();
@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 condition2Select.$control[0].closest('.field').classList.add('hidden');
 
                 condition1Select.off('change');
-                updateConditionSelect(condition1Select, globalConditions?.[group]?.condition1 ?? null, condition2Select, group);
+                updateConditionSelect(condition1Select, globalConditions?.[value]?.condition1 ?? null, condition2Select, value);
             });
 
             // Set existing values for condition1 and condition2

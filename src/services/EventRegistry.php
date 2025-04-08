@@ -14,16 +14,33 @@ class EventRegistry extends Component
 {
     private array $providers = [];
 
+    /**
+     * Registers an event provider.
+     *
+     * @param AbstractEventProvider $provider
+     * @return void
+     */
     public function registerProvider(AbstractEventProvider $provider): void
     {
         $this->providers[$provider->getEventId()] = $provider;
     }
 
+    /**
+     * Get provider by event ID.
+     *
+     * @param string $eventId
+     * @return AbstractEventProvider|null
+     */
     public function getProvider(string $eventId): ?AbstractEventProvider
     {
         return $this->providers[$eventId] ?? null;
     }
 
+    /**
+     * Get all registered events.
+     *
+     * @return array
+     */
     public function getAllEvents(): array
     {
         $events = [];

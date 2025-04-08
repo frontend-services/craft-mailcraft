@@ -6,6 +6,7 @@ use Craft;
 use craft\base\Component;
 use craft\records\EntryType;
 use craft\records\Section;
+use frontendservices\mailcraft\MailCraft;
 
 /**
  *
@@ -15,7 +16,7 @@ use craft\records\Section;
  */
 class ConditionService extends Component
 {
-    private array $conditions = [];
+//    private array $conditions = [];
     private array $sections = [];
 
     public function init(): void
@@ -24,33 +25,45 @@ class ConditionService extends Component
 
         $this->sections = Craft::$app->entries->allSections;
 
-        $this->conditions = [
-            'entry' => [
-                'condition1' => [
-                    'operand' => 'entry.section.handle == condition',
-                    'name' => Craft::t('mailcraft', 'Section'),
-                    'options' => $this->getEntrySections(),
-                    'dependant' => true
-                ],
-                'condition2' => [
-                    'operand' => 'entry.type.handle == condition',
-                    'name' => Craft::t('mailcraft', 'Entry Type'),
-                    'options' => $this->getEntryTypes()
-                ],
-            ],
-            'user' => [
-                'condition1' => [
-                    'operand' => 'user.group.handle == condition',
-                    'name' => Craft::t('mailcraft', 'User Group'),
-                    'options' => $this->getUserGroups()
-                ],
-            ],
-        ];
+//        $this->conditions = [
+//            'entry' => [
+//                'condition1' => [
+//                    'operand' => 'entry.section.handle == condition',
+//                    'name' => Craft::t('mailcraft', 'Section'),
+//                    'options' => $this->getEntrySections(),
+//                    'dependant' => true
+//                ],
+//                'condition2' => [
+//                    'operand' => 'entry.type.handle == condition',
+//                    'name' => Craft::t('mailcraft', 'Entry Type'),
+//                    'options' => $this->getEntryTypes()
+//                ],
+//            ],
+//            'user' => [
+//                'condition1' => [
+//                    'operand' => 'user.group.handle == condition',
+//                    'name' => Craft::t('mailcraft', 'User Group'),
+//                    'options' => $this->getUserGroups()
+//                ],
+//            ],
+//        ];
     }
 
-    public function getConditions(): array
+//    public function getConditions(): array
+//    {
+//        return $this->conditions;
+//    }
+
+    public function getAllConditions(): array
     {
-        return $this->conditions;
+        $conditions = [];
+        $providers = MailCraft::getInstance()->eventRegistry->getProviders();
+
+        foreach ($providers as $provider) {
+            $conditions[$provider->getEventId()] = $provider->getConditions();
+        }
+
+        return $conditions;
     }
 
     public function getEntrySections(): array
@@ -73,8 +86,8 @@ class ConditionService extends Component
     public function getEntryTypes(): array
     {
         $options = [];
+        /** @var Section $section */
         foreach ($this->sections as $section) {
-            /** @var Section $section */
 
             $sectionOptions = [
                 [
@@ -84,8 +97,8 @@ class ConditionService extends Component
             ];
 
             $entryTypes = Craft::$app->entries->getEntryTypesBySectionId($section->id);
+            /** @var EntryType $entryType */
             foreach ($entryTypes as $entryType) {
-                /** @var EntryType $entryType */
                 $sectionOptions[] = [
                     'value' => $entryType->handle,
                     'text' => $entryType->name

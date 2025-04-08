@@ -18,7 +18,12 @@ use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\services\EventRegistry;
 use frontendservices\mailcraft\variables\MailCraftVariable;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
 use yii\base\Event;
+use yii\base\Exception;
+use yii\base\InvalidConfigException;
 
 /**
  * MailCraft plugin
@@ -30,16 +35,15 @@ use yii\base\Event;
  * @license https://craftcms.github.io/license/ Craft License
  * @property-read EmailService $emailService
  * @property-read null|array $cpNavItem
- * @property-read \frontendservices\mailcraft\models\Settings $settings
+ * @property-read Settings $settings
  * @property-read ConditionService $conditionService
+ * @property-read EventRegistry $eventRegistry
  */
 class MailCraft extends Plugin
 {
     public string $schemaVersion = '1.0.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
-
-    // Whether the plugin has editions
     public bool $hasEditions = false;
 
     // Edition constants
@@ -65,6 +69,9 @@ class MailCraft extends Plugin
         ];
     }
 
+    /**
+     * @throws InvalidConfigException
+     */
     public function init(): void
     {
         parent::init();
@@ -73,6 +80,7 @@ class MailCraft extends Plugin
 
         // Register components
         $this->setComponents([
+            'conditionService' => ConditionService::class,
             'emailService' => EmailService::class,
             'eventRegistry' => EventRegistry::class,
         ]);
@@ -81,7 +89,7 @@ class MailCraft extends Plugin
         Event::on(
             CraftVariable::class,
             CraftVariable::EVENT_INIT,
-            function(Event $event) {
+            static function(Event $event) {
                 $event->sender->set('mailCraft', MailCraftVariable::class);
             }
         );
@@ -92,18 +100,26 @@ class MailCraft extends Plugin
             $this->registerElementTypes();
             $this->registerPermissions();
         });
-        
+
         $this->registerProviders();
 
         $emailService = $this->get('emailService');
-        $emailService->init();
+        if ($emailService) {
+            $emailService->init();
+        }
     }
 
+    /**
+     * @inheritdoc
+     */
     protected function createSettingsModel(): ?Model
     {
         return new Settings();
     }
 
+    /**
+     * @inheritdoc
+     */
     protected function settingsHtml(): ?string
     {
         return Craft::$app->view->renderTemplate('mailcraft/_settings.twig', [
@@ -112,9 +128,16 @@ class MailCraft extends Plugin
         ]);
     }
 
+    /**
+     * Register all event providers
+     *
+     * @throws InvalidConfigException
+     */
     private function registerProviders(): void
     {
+        /** @var EventRegistry $registry */
         $registry = $this->get('eventRegistry');
+
         if ($registry) {
             $registry->registerProvider(new EntryUpdateEventProvider());
         }
@@ -125,7 +148,7 @@ class MailCraft extends Plugin
         Event::on(
             UrlManager::class,
             UrlManager::EVENT_REGISTER_CP_URL_RULES,
-            function(RegisterUrlRulesEvent $event) {
+            static function(RegisterUrlRulesEvent $event) {
                 $event->rules['mailcraft'] = 'mailcraft/email-templates/index';
                 $event->rules['mailcraft/email-templates/new'] = 'mailcraft/email-templates/new';
                 $event->rules['mailcraft/email-templates/<templateId:\d+>'] = 'mailcraft/email-templates/edit';

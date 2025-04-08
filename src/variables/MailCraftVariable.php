@@ -6,12 +6,13 @@ use Craft;
 use craft\ckeditor\events\ModifyConfigEvent;
 use craft\ckeditor\Field;
 use craft\web\View;
-use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\events\TriggerEvents;
+use frontendservices\mailcraft\services\EventRegistry;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\Event;
+use yii\base\InvalidConfigException;
 
 class MailCraftVariable
 {
@@ -24,7 +25,9 @@ class MailCraftVariable
     }
 
     /**
-     * Get events but prepare them for optiongroups
+     * Get events and prepare them for optiongroups
+     *
+     * @throws InvalidConfigException
      */
     public function getAvailableEventsForOptions(): array
     {
@@ -33,6 +36,7 @@ class MailCraftVariable
             return [];
         }
 
+        /** @var $registry EventRegistry */
         $registry = $module->get('eventRegistry');
         if (!$registry) {
             return [];
@@ -57,16 +61,19 @@ class MailCraftVariable
 
     public function getAvailableEventsList(): array
     {
-        return TriggerEvents::getAvailableEventsList();
+        /** @var EventRegistry $registry */
+        $registry = MailCraft::getInstance()->get('eventRegistry');
+
+        return $registry->getAvailableEventsList();
     }
 
     /**
      * Get array of available trigger events
      */
-    public function getTriggerEvents(): array
-    {
-        return TriggerEvents::getAvailableEvents();
-    }
+//    public function getTriggerEvents(): array
+//    {
+//        return TriggerEvents::getAvailableEvents();
+//    }
 
     /**
      * Template text editor html
@@ -150,6 +157,6 @@ EOD;
      */
     public function getGlobalConditions(): array
     {
-        return MailCraft::getInstance()->conditionService->getConditions();
+        return MailCraft::getInstance()->conditionService->getAllConditions();
     }
 }
