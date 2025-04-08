@@ -18,11 +18,7 @@ use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\services\EventRegistry;
 use frontendservices\mailcraft\variables\MailCraftVariable;
-use Twig\Error\LoaderError;
-use Twig\Error\RuntimeError;
-use Twig\Error\SyntaxError;
 use yii\base\Event;
-use yii\base\Exception;
 use yii\base\InvalidConfigException;
 
 /**

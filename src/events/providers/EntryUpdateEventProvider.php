@@ -58,18 +58,6 @@ class EntryUpdateEventProvider extends AbstractEventProvider
         );
     }
 
-//    public function getSampleData(): array
-//    {
-//        return [
-//            'entry' => Entry::find()->one() ?? new Entry([
-//                'title' => 'Sample Entry',
-//                'url' => '/sample-entry',
-//                'sectionId' => 1
-//            ])
-//        ];
-//    }
-
-
     /**
      * @inheritDoc
      */

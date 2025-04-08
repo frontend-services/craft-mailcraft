@@ -44,7 +44,6 @@
                         if (response && response[example]) {
                             $('#title').val(response[example].title);
                             $('#subject').val(response[example].subject);
-                            // $('#event').val(response[example].id).trigger('change');
                             $('#event')[0].selectize.setValue(response[example].id);
 
                             const template = document.querySelector('#template');

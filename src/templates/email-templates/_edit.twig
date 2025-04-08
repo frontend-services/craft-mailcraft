@@ -44,7 +44,7 @@
             {{ forms.textField({
                 first: true,
                 label: "Title"|t('mailcraft'),
-                instructions: "Internal name for this email template"|t('mailcraft'),
+                instructions: "Internal name for this email"|t('mailcraft'),
                 id: 'title',
                 name: 'title',
                 value: emailTemplate.title,
@@ -69,15 +69,6 @@
         </div>
 
         <style>
-        #mailcraft-form [data-attribute="cc"],
-        #mailcraft-form [data-attribute="bcc"],
-        #mailcraft-form [data-attribute="from"],
-        #mailcraft-form [data-attribute="fromName"],
-        #mailcraft-form [data-attribute="to"],
-        #mailcraft-form [data-attribute="toName"]
-        {
-            /*width: 50% !important;*/
-        }
         div#delay-field#delay-field {
             margin-bottom: 0 !important;
             padding-bottom: 0.4em !important;
@@ -277,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 select.refreshOptions(false);
                 select.updatePlaceholder();
 
-                // find parent element with class 'field' and add label
                 labelElement.innerHTML = label;
 
                 if (additionalUpdateSelect) { // update condition 2 selector
@@ -301,8 +291,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             eventSelect.on('change', (value) => {
                 if (!value) return;
-{#                const group = value.split('.').shift(); // user#}
-{#                const event = value.split('.').pop(); // update#}
 
                 // clear both selects and hide fields
                 condition1Select.clear();

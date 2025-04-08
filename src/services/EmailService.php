@@ -32,11 +32,6 @@ class EmailService extends Component
     {
         parent::init();
 
-        // Attach event handlers if we're not in console
-//        if (!Craft::$app->getRequest()->getIsConsoleRequest()) {
-//            $this->attachEventHandlers();
-//        }
-
         $this->registerEventHandlers();
     }
 
@@ -153,21 +148,4 @@ class EmailService extends Component
             $this->queueEmail($template, $variables, $template->delay ?: self::QUEUE_DELAY);
         }
     }
-
-    /**
-     * Test template conditions
-     */
-//    private function testTemplateConditions(EmailTemplate $template, mixed $variables = []): bool
-//    {
-//        if (trim($template->conditions)) {
-//            try {
-//                return (bool)Craft::$app->view->renderObjectTemplate($template->conditions, $variables);
-//            } catch (Exception|\Throwable $e) {
-//                Craft::error('Error with conditions: ' . $e->getMessage(), __METHOD__);
-//                return false;
-//            }
-//        }
-//
-//        return true;
-//    }
 }

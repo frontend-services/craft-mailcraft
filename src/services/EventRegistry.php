@@ -8,6 +8,7 @@ use frontendservices\mailcraft\base\AbstractEventProvider;
  * EventRegistry service
  *
  * @property-read array $availableEventsList
+ * @property-read array[] $sampleEmails
  * @property-read array $allEvents
  */
 class EventRegistry extends Component
@@ -24,17 +25,6 @@ class EventRegistry extends Component
     {
         $this->providers[$provider->getEventId()] = $provider;
     }
-
-    /**
-     * Get provider by event ID.
-     *
-     * @param string $eventId
-     * @return AbstractEventProvider|null
-     */
-//    public function getProvider(string $eventId): ?AbstractEventProvider
-//    {
-//        return $this->providers[$eventId] ?? null;
-//    }
 
     /**
      * Get all registered events.
@@ -54,21 +44,6 @@ class EventRegistry extends Component
         }
         return $events;
     }
-
-//    public function getSampleData(string $eventId): array
-//    {
-//        return $this->getProvider($eventId)?->getSampleData() ?? [];
-//    }
-
-//    public function getTemplateVariables(string $eventId): array
-//    {
-//        return $this->getProvider($eventId)?->getTemplateVariables() ?? [];
-//    }
-
-//    public function getTemplateExample(string $eventId): array
-//    {
-//        return $this->getProvider($eventId)?->getTemplateExample() ?? [];
-//    }
 
     public function getProviders(): array
     {

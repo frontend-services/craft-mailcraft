@@ -24,35 +24,7 @@ class ConditionService extends Component
         parent::init();
 
         $this->sections = Craft::$app->entries->allSections;
-
-//        $this->conditions = [
-//            'entry' => [
-//                'condition1' => [
-//                    'operand' => 'entry.section.handle == condition',
-//                    'name' => Craft::t('mailcraft', 'Section'),
-//                    'options' => $this->getEntrySections(),
-//                    'dependant' => true
-//                ],
-//                'condition2' => [
-//                    'operand' => 'entry.type.handle == condition',
-//                    'name' => Craft::t('mailcraft', 'Entry Type'),
-//                    'options' => $this->getEntryTypes()
-//                ],
-//            ],
-//            'user' => [
-//                'condition1' => [
-//                    'operand' => 'user.group.handle == condition',
-//                    'name' => Craft::t('mailcraft', 'User Group'),
-//                    'options' => $this->getUserGroups()
-//                ],
-//            ],
-//        ];
     }
-
-//    public function getConditions(): array
-//    {
-//        return $this->conditions;
-//    }
 
     public function getAllConditions(): array
     {

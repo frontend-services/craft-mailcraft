@@ -7,7 +7,6 @@ use craft\ckeditor\events\ModifyConfigEvent;
 use craft\ckeditor\Field;
 use craft\web\View;
 use frontendservices\mailcraft\MailCraft;
-use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\services\EventRegistry;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
@@ -16,14 +15,6 @@ use yii\base\InvalidConfigException;
 
 class MailCraftVariable
 {
-    /**
-     * Get all available events
-     */
-    public function getAvailableEvents(): array
-    {
-        return TriggerEvents::getAvailableEvents();
-    }
-
     /**
      * Get events and prepare them for optiongroups
      *
@@ -69,14 +60,6 @@ class MailCraftVariable
 
         return $registry->getAvailableEventsList();
     }
-
-    /**
-     * Get array of available trigger events
-     */
-//    public function getTriggerEvents(): array
-//    {
-//        return TriggerEvents::getAvailableEvents();
-//    }
 
     /**
      * Template text editor html

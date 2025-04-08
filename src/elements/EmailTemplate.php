@@ -4,13 +4,9 @@ namespace frontendservices\mailcraft\elements;
 
 use Craft;
 use craft\base\Element;
-use craft\elements\actions\Delete;
-use craft\elements\actions\Edit;
 use craft\elements\db\ElementQueryInterface;
 use craft\helpers\UrlHelper;
 use frontendservices\mailcraft\elements\db\EmailTemplateQuery;
-use frontendservices\mailcraft\MailCraft;
-use frontendservices\mailcraft\events\TriggerEvents;
 use frontendservices\mailcraft\records\EmailTemplateRecord;
 use yii\base\InvalidConfigException;
 use yii\db\Exception;
@@ -101,12 +97,6 @@ class EmailTemplate extends Element
      */
     public function getCpEditUrl(): string
     {
-        // $userSession = Craft::$app->getUser();
-
-        // if ($userSession && !$userSession->checkPermission('mailcraft:manageEmailTemplates')) {
-        //     return null;
-        // }
-
         return UrlHelper::cpUrl("mailcraft/email-templates/{$this->id}");
     }
 
@@ -216,21 +206,6 @@ class EmailTemplate extends Element
     {
         return ['title', 'subject', 'to', 'toName'];
     }
-
-     /**
-      * @inheritdoc
-      */
-//     protected static function defineActions(string $source): array
-//     {
-//         $actions = parent::defineActions($source);
-//
-//         if (Craft::$app->getUser()->checkPermission('mailcraft:manageEmailTemplates')) {
-//             $actions[] = Edit::class;
-//             $actions[] = Delete::class;
-//         }
-//
-//         return $actions;
-//     }
 
     /**
      * @inerhitdoc

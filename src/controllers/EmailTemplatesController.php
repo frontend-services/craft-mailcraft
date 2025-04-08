@@ -109,7 +109,6 @@ class EmailTemplatesController extends Controller
             $emailTemplate = new EmailTemplate();
         }
 
-        // Set the email template attributes
         $emailTemplate->title = $this->request->getBodyParam('title');
         $emailTemplate->subject = $this->request->getBodyParam('subject');
         $emailTemplate->event = $this->request->getBodyParam('event');
@@ -127,7 +126,6 @@ class EmailTemplatesController extends Controller
         $emailTemplate->condition1 = $this->request->getBodyParam('condition1');
         $emailTemplate->condition2 = $this->request->getBodyParam('condition2');
 
-        // Save the email template
         try {
             if (!Craft::$app->elements->saveElement($emailTemplate)) {
                 if ($this->request->getAcceptsJson()) {
@@ -139,12 +137,10 @@ class EmailTemplatesController extends Controller
 
                 Craft::$app->getSession()->setError(Craft::t('mailcraft', 'Couldn\'t save email template.'));
 
-                // Send the email template back to the template
-                Craft::$app->getUrlManager()->setRouteParams([
+                return $this->renderTemplate('mailcraft/email-templates/_edit', [
                     'emailTemplate' => $emailTemplate,
+                    'exampleTemplates' => MailCraft::getInstance()->eventRegistry->getSampleEmails(),
                 ]);
-
-                return null;
             }
         } catch (ElementNotFoundException $e) {
             throw new NotFoundHttpException($e->getMessage());
@@ -238,7 +234,7 @@ class EmailTemplatesController extends Controller
 
     /**
      * Get examples for all email templates
-     * 
+     *
      * @throws BadRequestHttpException
      * @throws ForbiddenHttpException
      * @throws MethodNotAllowedHttpException

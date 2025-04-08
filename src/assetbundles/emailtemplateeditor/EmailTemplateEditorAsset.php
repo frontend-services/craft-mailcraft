@@ -19,10 +19,6 @@ class EmailTemplateEditorAsset extends AssetBundle
             'js/editor.js',
         ];
 
-//        $this->css = [
-//            'css/editor.css',
-//        ];
-
         parent::init();
     }
 }
