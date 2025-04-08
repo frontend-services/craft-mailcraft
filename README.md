@@ -1,47 +1,65 @@
 # MailCraft for Craft CMS
 
-Client friendly email notifications for Craft CMS.
+> **Empower Your Clients with Automated Email Notifications**
 
-Send emails to content editors when new entries are created. Send 
-email to user 7 days after the registration to ask for a feedback. 
-And many many more. 
+MailCraft allows content managers to set up sophisticated email notifications directly from the Craft CMS control panel—no developer assistance required. Install once, and let your clients handle the rest.
 
-## Features
+## 🚀 Key Features
 
-- Create email templates with Twig syntax
-- Send emails on specific triggers (user creation, entry updates, etc.)
-- Delayed email sending
+- **Visual Email Builder**: Create beautiful email templates using familiar Twig syntax
+- **Event-Driven Triggers**: Configure emails to send automatically based on specific system events
+- **Scheduled Delivery**: Set up delayed emails for follow-ups, reminders, and nurture campaigns
+- **Conditional Logic**: Target specific users or content with powerful filtering options
+- **Zero Code Required**: All configuration happens in the admin interface
 
-## Coming soon
- 
-- Preview emails
-- Craft Commerce Emails
+## 📧 Available Triggers
 
-## Requirements
+### Entry Events
+- **Entry Created**: Send notifications when new content is published
+- **Entry Updated**: Alert team members when existing content changes
+- **Filtering Options**: Target by section, entry type, status, field values, and more
 
-This plugin requires Craft CMS 5.5.0 or later, and PHP 8.2 or later.
+### User Events
+- **User Created**: Welcome new registrations automatically
+- **User Updated**: React to profile changes or important user updates
+- **User Activated**: Send onboarding materials when accounts become active
+- **Email Verified**: Acknowledge successful verification steps
+- **Filtering Options**: Target by user group, custom fields, and more
 
-## Recipes
+## 🔍 Example Use Cases
 
-### Send an email 7 days after user registration
+### Delayed Welcome Sequence
 ```
-Event: User is Activated
-Delay (s): 604800
+Trigger: User is Activated
+Delay: 604800 seconds (7 days)
 ```
 
-### Send an email only to users registered with @company.com
+### Internal Review Notifications
 ```
-Event: User is Created
+Trigger: Entry Created
+Extra Conditions: entry.section.handle == "newsArticles" and entry.approved != true
+```
+
+### Company Domain Registration Alerts
+```
+Trigger: User is Created
 Extra Conditions: user.email ends with "@company.com"
 ```
 
-## Feature Requests
+## 📅 Coming Soon
 
-Have an idea for a new trigger or feature? We welcome your suggestions!
+- **Email Preview**: Test templates with sample data before activating
+- **Craft Commerce Integration**: Order confirmation, abandoned cart reminders, and more
 
-Feel free to:
-- Open an issue on [GitHub](https://github.com/frontend-services/craft-mailcraft/issues)
-- Contact us directly at https://mailcraft.dev
-- Submit a pull request if you've implemented something you think would benefit others
+## ⚙️ Requirements
 
-We're actively developing MailCraft and value community input on which features to prioritize.
+- Craft CMS 5.5.0 or later
+- PHP 8.2 or later
+
+## 🤝 Feature Requests & Contributions
+
+We're actively developing MailCraft and welcome community input:
+
+- **Issues & Requests**: [Open an issue on GitHub](https://github.com/frontend-services/craft-mailcraft/issues)
+- **Contact**: Reach out at [mailcraft.dev](https://mailcraft.dev)
+- **Contribute**: Pull requests welcome for features that benefit the community
