@@ -32,6 +32,8 @@ class EmailService extends Component
     {
         parent::init();
 
+        // log to craft
+        Craft::info('Email service initialized. Stack trace: ' . json_encode(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS)), __METHOD__);
         $this->registerEventHandlers();
     }
 

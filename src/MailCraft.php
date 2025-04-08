@@ -12,6 +12,7 @@ use craft\services\UserPermissions;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
 use frontendservices\mailcraft\models\Settings;
 use frontendservices\mailcraft\services\ConditionService;
@@ -100,9 +101,6 @@ class MailCraft extends Plugin
         $this->registerProviders();
 
         $emailService = $this->get('emailService');
-        if ($emailService) {
-            $emailService->init();
-        }
     }
 
     /**
@@ -136,6 +134,7 @@ class MailCraft extends Plugin
 
         if ($registry) {
             $registry->registerProvider(new EntryUpdateEventProvider());
+            $registry->registerProvider(new EntryCreateEventProvider());
         }
     }
 

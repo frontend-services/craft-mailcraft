@@ -4,7 +4,6 @@ namespace frontendservices\mailcraft\jobs;
 
 use Craft;
 use craft\queue\BaseJob;
-use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\MailCraft;
 
 class SendEmailJob extends BaseJob

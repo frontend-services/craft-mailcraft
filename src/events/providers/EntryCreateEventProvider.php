@@ -10,14 +10,14 @@ use frontendservices\mailcraft\MailCraft;
 use yii\base\Event;
 use yii\base\ModelEvent;
 
-class EntryUpdateEventProvider extends AbstractEventProvider
+class EntryCreateEventProvider extends AbstractEventProvider
 {
     /**
      * @inheritDoc
      */
     public function getEventId(): string
     {
-        return 'entry.update';
+        return 'entry.create';
     }
 
     /**
@@ -26,7 +26,7 @@ class EntryUpdateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When Entry is Updated',
+            'label' => 'When Entry is Created',
             'group' => 'Entries',
         ];
     }
@@ -43,14 +43,9 @@ class EntryUpdateEventProvider extends AbstractEventProvider
                 /** @var Entry $entry */
                 $entry = $event->sender;
                 if (
-                    !($entry->getIsDraft()) &&
-                    !($entry->duplicateOf && $entry->getIsCanonical() && !$entry->updatingFromDerivative) &&
-                    ($entry->enabled && $entry->getEnabledForSite()) &&
-                    !$entry->firstSave &&
-                    !$entry->propagating &&
-                    !$entry->isProvisionalDraft &&
-                    !$entry->resaving &&
-                    !($entry->getIsRevision())
+                    ($event->sender->enabled && $event->sender->getEnabledForSite()) &&
+                    $event->sender->firstSave &&
+                    !$event->sender->propagating
                 ) {
                     $handler(['entry' => $entry]);
                 }
@@ -86,10 +81,10 @@ class EntryUpdateEventProvider extends AbstractEventProvider
     {
         return [
             'id' => $this->getEventId(),
-            'title' => 'Entry Update Notification',
-            'subject' => 'Content Updated: {{entry.title}}',
-            'template' => '<h1>Entry Updated</h1>
-<p>The entry "{{entry.title}}" has been updated.</p>
+            'title' => 'New Entry Notification',
+            'subject' => 'New Content: {{entry.title}}',
+            'template' => '<h1>New Entry Created</h1>
+<p>A new entry "{{entry.title}}" has been created.</p>
 <p>View it <a href="{{entry.url}}">here</a>.</p>
 <p>Edit it <a href="{{entry.cpEditUrl}}">here</a>.</p>',
         ];
