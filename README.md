@@ -1,87 +1,47 @@
 # MailCraft for Craft CMS
 
-MailCraft adds powerful transactional email capabilities to your Craft CMS site.
+Client friendly email notifications for Craft CMS.
+
+Send emails to content editors when new entries are created. Send 
+email to user 7 days after the registration to ask for a feedback. 
+And many many more. 
 
 ## Features
 
 - Create email templates with Twig syntax
 - Send emails on specific triggers (user creation, entry updates, etc.)
-- Preview emails before sending
-- Delayed email sending (Pro)
-- Multiple recipients with CC/BCC support (Pro)
-- Commerce integration (Pro)
+- Delayed email sending
+
+## Coming soon
+ 
+- Preview emails
+- Craft Commerce Emails
 
 ## Requirements
 
 This plugin requires Craft CMS 5.5.0 or later, and PHP 8.2 or later.
 
-## Installation
+## Recipes
 
-#### From the Plugin Store
-
-Go to the Plugin Store in your project’s Control Panel and search for “MailCraft”. Then press “Install”.
-
-#### With Composer
-
-Open your terminal and run the following commands:
-
-```bash
-# go to the project directory
-cd /path/to/my-project.test
-
-# tell Composer to load the plugin
-composer require frontend-services/craft-mail-craft
-
-# tell Craft to install the plugin
-./craft plugin/install mail-craft
+### Send an email 7 days after user registration
+```
+Event: User is Activated
+Delay (s): 604800
 ```
 
-## Email Template Variables
-
-The following variables are available in all email templates:
-
-* `{{ now }}` - Current date/time
-* `{{ siteUrl }}` - Site URL
-* `{{ siteName }}` - Site name
-
-### User Events
-
-```twig
-{{ user.email }}
-{{ user.username }}
-{{ user.firstName }}
-{{ user.lastName }}
-{{ user.fullName }}
+### Send an email only to users registered with @company.com
+```
+Event: User is Created
+Extra Conditions: user.email ends with "@company.com"
 ```
 
-### Entry Events
+## Feature Requests
 
-```twig
-{{ entry.title }}
-{{ entry.url }}
-{{ entry.section }}
-{{ entry.type }}
-{{ entry.customFields }}
-```
+Have an idea for a new trigger or feature? We welcome your suggestions!
 
-### Commerce Events
+Feel free to:
+- Open an issue on [GitHub](https://github.com/frontend-services/craft-mailcraft/issues)
+- Contact us directly at [mato@frontend.services](mailto:mato@frontend.services)
+- Submit a pull request if you've implemented something you think would benefit others
 
-```twig
-{{ order.number }}
-{{ order.totalPrice }}
-{{ order.status }}
-{{ order.customer.email }}
-
-{% for item in order.lineItems %}
-    {{ item.description }}
-    {{ item.qty }}
-    {{ item.price }}
-{% endfor %}
-```
-
-#### Order Status Changes
-
-```twig
-{{ oldStatus.name }}
-{{ newStatus.name }}
-```
+We're actively developing MailCraft and value community input on which features to prioritize.

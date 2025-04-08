@@ -25,7 +25,7 @@ class UserUpdateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User is Updated',
+            'label' => 'User is Updated',
             'group' => 'Users',
         ];
     }

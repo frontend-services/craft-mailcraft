@@ -26,7 +26,7 @@ class EntryCreateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When Entry is Created',
+            'label' => 'Entry is Created',
             'group' => 'Entries',
         ];
     }

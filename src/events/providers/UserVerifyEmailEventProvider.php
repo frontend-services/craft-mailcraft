@@ -2,7 +2,6 @@
 namespace frontendservices\mailcraft\events\providers;
 
 use Craft;
-use craft\elements\User;
 use craft\events\UserEvent;
 use craft\services\Users;
 use frontendservices\mailcraft\base\AbstractEventProvider;
@@ -26,7 +25,7 @@ class UserVerifyEmailEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User Verifies Email',
+            'label' => 'User Verifies Email',
             'group' => 'Users',
         ];
     }

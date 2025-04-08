@@ -26,7 +26,7 @@ class EntryUpdateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When Entry is Updated',
+            'label' => 'Entry is Updated',
             'group' => 'Entries',
         ];
     }

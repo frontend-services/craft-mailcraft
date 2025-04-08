@@ -25,7 +25,7 @@ class UserActivateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User is Activated',
+            'label' => 'User is Activated',
             'group' => 'Users',
         ];
     }

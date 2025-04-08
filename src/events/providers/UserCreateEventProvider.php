@@ -25,7 +25,7 @@ class UserCreateEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => 'When User is Created',
+            'label' => 'User is Created',
             'group' => 'Users',
         ];
     }
