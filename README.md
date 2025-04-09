@@ -1,10 +1,13 @@
 # MailCraft for Craft CMS
 
-> **Empower Your Clients with Automated Email Notifications**
+> **Client Friendly Email Notifications**
 
-MailCraft allows content managers to set up sophisticated email notifications directly from the Craft CMS control panel—no developer assistance required. Install once, and let your clients handle the rest.
+MailCraft allows content managers to set up email notifications directly from the Craft CMS control 
+panel—no developer assistance required. Install once, and let your clients handle the rest.
 
-## 🚀 Key Features
+![MailCraft Logo](./assets/screenshot.png)
+
+## Key Features
 
 - **Visual Email Builder**: Create beautiful email templates using familiar Twig syntax
 - **Event-Driven Triggers**: Configure emails to send automatically based on specific system events
@@ -12,7 +15,7 @@ MailCraft allows content managers to set up sophisticated email notifications di
 - **Conditional Logic**: Target specific users or content with powerful filtering options
 - **Zero Code Required**: All configuration happens in the admin interface
 
-## 📧 Available Triggers
+## Available Triggers
 
 ### Entry Events
 - **Entry Created**: Send notifications when new content is published
@@ -25,6 +28,11 @@ MailCraft allows content managers to set up sophisticated email notifications di
 - **User Activated**: Send onboarding materials when accounts become active
 - **Email Verified**: Acknowledge successful verification steps
 - **Filtering Options**: Target by user group, custom fields, and more
+
+### Missing an Event? ⚠️
+
+If you need a specific event that isn't currently supported, please let us know! Give us a shout at 
+[mailcraft.dev](https://mailcraft.dev) or open an issue on GitHub.
 
 ## 🔍 Example Use Cases
 
@@ -46,17 +54,17 @@ Trigger: User is Created
 Extra Conditions: user.email ends with "@company.com"
 ```
 
-## 📅 Coming Soon
+## Coming Soon
 
 - **Email Preview**: Test templates with sample data before activating
 - **Craft Commerce Integration**: Order confirmation, abandoned cart reminders, and more
 
-## ⚙️ Requirements
+## Requirements
 
 - Craft CMS 5.5.0 or later
 - PHP 8.2 or later
 
-## 🤝 Feature Requests & Contributions
+## Feature Requests & Contributions
 
 We're actively developing MailCraft and welcome community input:
 
