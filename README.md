@@ -58,6 +58,13 @@ Trigger: User is Created
 Extra Conditions: user.email ends with "@company.com"
 ```
 
+### Email customer when the order has been shipped
+```
+Trigger: Commerce Order Status Changes
+New Status: Shipped
+Old Status: New
+```
+
 ## Requirements
 
 - Craft CMS 5.5.0 or later
