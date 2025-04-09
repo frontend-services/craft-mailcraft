@@ -29,6 +29,10 @@ panel—no developer assistance required. Install once, and let your clients han
 - **Email Verified**: Acknowledge successful verification steps
 - **Filtering Options**: Target by user group, custom fields, and more
 
+### Commerce events
+- **Order Created**: Notify users when they place an order
+- **Order Status Changed**: Alert users when their order status changes
+
 ### Missing an Event? ⚠️
 
 If you need a specific event that isn't currently supported, please let us know! Give us a shout at 
@@ -53,11 +57,6 @@ Extra Conditions: entry.section.handle == "newsArticles" and entry.approved != t
 Trigger: User is Created
 Extra Conditions: user.email ends with "@company.com"
 ```
-
-## Coming Soon
-
-- **Email Preview**: Test templates with sample data before activating
-- **Craft Commerce Integration**: Order confirmation, abandoned cart reminders, and more
 
 ## Requirements
 

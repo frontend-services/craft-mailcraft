@@ -68,7 +68,7 @@ class EmailTemplatesController extends Controller
 
         // Get the email template if one was provided
         if ($emailTemplate === null && $templateId !== null) {
-            $emailTemplate = EmailTemplate::findOne($templateId);
+            $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
             if (!$emailTemplate) {
                 throw new NotFoundHttpException('Email template not found');
             }
@@ -101,7 +101,7 @@ class EmailTemplatesController extends Controller
         $templateId = $this->request->getBodyParam('templateId');
 
         if ($templateId) {
-            $emailTemplate = EmailTemplate::findOne($templateId);
+            $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
             if (!$emailTemplate) {
                 throw new NotFoundHttpException('Email template not found');
             }
@@ -178,20 +178,22 @@ class EmailTemplatesController extends Controller
     {
         $this->requirePostRequest();
         $this->requireAdmin();
-        $this->requireAcceptsJson();
 
-        $templateId = $this->request->getRequiredBodyParam('id');
+        $templateId = $this->request->getRequiredBodyParam('templateId');
 
-        $emailTemplate = EmailTemplate::findOne($templateId);
+        $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
         if (!$emailTemplate) {
             throw new NotFoundHttpException('Email template not found');
         }
 
         if (!Craft::$app->elements->deleteElement($emailTemplate)) {
-            return $this->asJson(['success' => false]);
+            Craft::$app->getSession()->setError(Craft::t('mailcraft', 'Couldn\'t delete email template.'));
+            return $this->redirectToPostedUrl($emailTemplate);
         }
 
-        return $this->asJson(['success' => true]);
+        Craft::$app->getSession()->setNotice(Craft::t('mailcraft', 'Email template deleted.'));
+
+        return $this->redirectToPostedUrl($emailTemplate);
     }
 
     /**
@@ -209,7 +211,7 @@ class EmailTemplatesController extends Controller
 
         $templateId = $this->request->getRequiredBodyParam('id');
 
-        $emailTemplate = EmailTemplate::findOne($templateId);
+        $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
         if (!$emailTemplate) {
             throw new NotFoundHttpException('Email template not found');
         }

@@ -5,6 +5,7 @@ namespace frontendservices\mailcraft\elements;
 use Craft;
 use craft\base\Element;
 use craft\elements\db\ElementQueryInterface;
+use craft\elements\User;
 use craft\helpers\UrlHelper;
 use frontendservices\mailcraft\elements\db\EmailTemplateQuery;
 use frontendservices\mailcraft\records\EmailTemplateRecord;
@@ -211,6 +212,22 @@ class EmailTemplate extends Element
      * @inerhitdoc
      */
     public function canView(\craft\elements\User $user): bool
+    {
+        return $user->can('mailcraft:manageEmailTemplates');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function canDelete(User $user): bool
+    {
+        return $user->can('mailcraft:manageEmailTemplates');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function canDuplicate(User $user): bool
     {
         return $user->can('mailcraft:manageEmailTemplates');
     }

@@ -11,6 +11,7 @@ use frontendservices\mailcraft\services\EventRegistry;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\Event;
+use yii\base\Exception;
 use yii\base\InvalidConfigException;
 
 class MailCraftVariable
@@ -144,5 +145,79 @@ EOD;
     public function getGlobalConditions(): array
     {
         return MailCraft::getInstance()->conditionService->getAllConditions();
+    }
+
+    /**
+     * Returns an HTML table with order items and totals formatted for an email
+     *
+     * @param \craft\commerce\elements\Order $order
+     * @return string
+     * @throws Exception
+     */
+    public function orderDetails(\craft\commerce\elements\Order $order): string
+    {
+        $view = Craft::$app->getView();
+        $oldMode = $view->getTemplateMode();
+        $view->setTemplateMode(View::TEMPLATE_MODE_CP);
+
+        try {
+            $template = <<<EOT
+<table style="width:100%; border-collapse:collapse; margin-bottom:20px;">
+    <tr style="background-color:#f5f5f5;">
+        <th style="text-align:left; padding:8px; border-bottom:1px solid #ddd;">{{ 'Item'|t('commerce') }}</th>
+        <th style="text-align:center; padding:8px; border-bottom:1px solid #ddd;">{{ 'Qty'|t('commerce') }}</th>
+        <th style="text-align:right; padding:8px; border-bottom:1px solid #ddd;">{{ 'Price'|t('commerce') }}</th>
+    </tr>
+    
+    {% for lineItem in order.lineItems %}
+    <tr>
+        <td style="padding:8px; border-bottom:1px solid #eee;">{{ lineItem.description }}</td>
+        <td style="padding:8px; text-align:center; border-bottom:1px solid #eee;">{{ lineItem.qty }}</td>
+        <td style="padding:8px; text-align:right; border-bottom:1px solid #eee;">{{ lineItem.totalAsCurrency }}</td>
+    </tr>
+    {% endfor %}
+    
+    <tr>
+        <td colspan="2" style="padding:8px; text-align:right;">{{ 'Subtotal'|t('commerce') }}:</td>
+        <td style="padding:8px; text-align:right;">{{ order.itemSubtotalAsCurrency }}</td>
+    </tr>
+    
+    {% if order.totalShippingCost > 0 %}
+    <tr>
+        <td colspan="2" style="padding:8px; text-align:right;">{{ 'Shipping'|t('commerce') }}:</td>
+        <td style="padding:8px; text-align:right;">{{ order.totalShippingCostAsCurrency }}</td>
+    </tr>
+    {% endif %}
+    
+    {% if order.totalTax > 0 %}
+    <tr>
+        <td colspan="2" style="padding:8px; text-align:right;">{{ 'Tax'|t('commerce') }}:</td>
+        <td style="padding:8px; text-align:right;">{{ order.totalTaxAsCurrency }}</td>
+    </tr>
+    {% endif %}
+    
+    {% if order.totalDiscount > 0 %}
+    <tr>
+        <td colspan="2" style="padding:8px; text-align:right;">{{ 'Discount'|t('commerce') }}:</td>
+        <td style="padding:8px; text-align:right;">{{ order.totalDiscountAsCurrency }}</td>
+    </tr>
+    {% endif %}
+    
+    <tr>
+        <td colspan="2" style="padding:8px; text-align:right; font-weight:bold; border-top:1px solid #ddd;">{{ 'Total'|t('commerce') }}:</td>
+        <td style="padding:8px; text-align:right; font-weight:bold; border-top:1px solid #ddd;">{{ order.totalPriceAsCurrency }}</td>
+    </tr>
+</table>
+EOT;
+
+            return $view->renderString($template, [
+                'order' => $order,
+            ]);
+        } catch (\Throwable $e) {
+            Craft::error('Error rendering order details: ' . $e->getMessage(), __METHOD__);
+            return 'Error rendering order details.';
+        } finally {
+            $view->setTemplateMode($oldMode);
+        }
     }
 }

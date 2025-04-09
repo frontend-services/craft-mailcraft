@@ -13,6 +13,7 @@ use frontendservices\mailcraft\MailCraft;
  * @property-read array[] $userGroups
  * @property-read array[] $entryTypes
  * @property-read array[] $entrySections
+ * @property-read array[] $orderStatuses
  */
 class ConditionService extends Component
 {
@@ -94,6 +95,29 @@ class ConditionService extends Component
             $options[] = [
                 'value' => $group->handle,
                 'text' => $group->name
+            ];
+        }
+        return $options;
+    }
+
+    public function getOrderStatuses(): array
+    {
+        if (!Craft::$app->plugins->isPluginEnabled('commerce')) {
+            return [];
+        }
+
+//        $statuses = Craft::$app->commerce->getOrderStatuses()->getAllOrderStatuses();
+        $statuses = \craft\commerce\records\OrderStatus::find()->all();
+        $options = [
+            [
+                'value' => false,
+                'text' => Craft::t('mailcraft', 'Any')
+            ]
+        ];
+        foreach ($statuses as $status) {
+            $options[] = [
+                'value' => $status->handle,
+                'text' => $status->name
             ];
         }
         return $options;

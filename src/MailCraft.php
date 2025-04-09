@@ -147,6 +147,15 @@ class MailCraft extends Plugin
                 $registry->registerProvider(new UserUpdateEventProvider());
                 $registry->registerProvider(new UserActivateEventProvider());
             }
+
+            if (Craft::$app->plugins->isPluginEnabled('commerce')) {
+                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderStatusChangeEventProvider());
+//                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderCompleteEventProvider());
+//                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderRefundEventProvider());
+//                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderPaidEventProvider());
+//                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderRefundedEventProvider());
+
+            }
         }
     }
 

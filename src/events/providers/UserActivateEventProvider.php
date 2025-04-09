@@ -73,10 +73,11 @@ class UserActivateEventProvider extends AbstractEventProvider
         return [
             'id' => $this->getEventId(),
             'title' => 'User Activation Notification',
-            'subject' => 'User Activated: {{user.username}}',
+            'to' => '{{user.email}}',
+            'subject' => 'You have been activated: {{user.username}}',
             'template' => '<h1>User Activated</h1>
-<p>The user "{{user.username}}" with email "{{user.email}}" has been activated.</p>
-<p>View user details <a href="{{user.cpEditUrl}}">here</a>.</p>',
+<p>Dear {{user.fullName}},</p>
+<p>Your account has been activated.</p>'
         ];
     }
 

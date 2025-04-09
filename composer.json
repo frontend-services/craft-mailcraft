@@ -2,6 +2,7 @@
   "name": "frontend-services/craft-mailcraft",
   "description": "Sending transactional emails on various events",
   "type": "craft-plugin",
+  "version": "1.0.1",
   "license": "proprietary",
   "support": {
     "email": "mato@frontend.services",

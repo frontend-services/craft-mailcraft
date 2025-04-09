@@ -45,6 +45,9 @@
                             $('#title').val(response[example].title);
                             $('#subject').val(response[example].subject);
                             $('#event')[0].selectize.setValue(response[example].id);
+                            if (response[example].to ?? false) {
+                                $('#to').val(response[example].to);
+                            }
 
                             const template = document.querySelector('#template');
                             // if template is textarea, set value directly
