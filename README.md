@@ -38,7 +38,7 @@ panel—no developer assistance required. Install once, and let your clients han
 If you need a specific event that isn't currently supported, please let us know! Give us a shout at 
 [mailcraft.dev](https://mailcraft.dev) or open an issue on GitHub.
 
-## 🔍 Example Use Cases
+## Example Use Cases
 
 ### Delayed Welcome Sequence
 ```
