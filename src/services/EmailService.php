@@ -136,18 +136,22 @@ class EmailService extends Component
      */
     private function handleTrigger(AbstractEventProvider $provider, array $variables = []): void
     {
-        // Find all email templates for this event
-        $templates = EmailTemplate::find()
-            ->event($provider->getEventId())
-            ->status(['enabled'])
-            ->all();
+        try {
+            // Find all email templates for this event
+            $templates = EmailTemplate::find()
+                ->event($provider->getEventId())
+                ->status(['enabled'])
+                ->all();
 
-        foreach ($templates as $template) {
-            if (!$provider->testConditions($template, $variables)) {
-                continue;
+            foreach ($templates as $template) {
+                if (!$provider->testConditions($template, $variables)) {
+                    continue;
+                }
+
+                $this->queueEmail($template, $variables, $template->delay ?: self::QUEUE_DELAY);
             }
-
-            $this->queueEmail($template, $variables, $template->delay ?: self::QUEUE_DELAY);
+        } catch (\Throwable $e) {
+            Craft::error('Error handling email trigger: ' . $e->getMessage() . "\n" . $e->getTraceAsString(), __METHOD__);
         }
     }
 }

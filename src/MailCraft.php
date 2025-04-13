@@ -4,7 +4,6 @@ namespace frontendservices\mailcraft;
 use Craft;
 use craft\base\Model;
 use craft\base\Plugin;
-use craft\enums\CmsEdition;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
@@ -43,7 +42,7 @@ use yii\base\InvalidConfigException;
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.0.0';
+    public string $schemaVersion = '1.0.1';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;
@@ -141,7 +140,11 @@ class MailCraft extends Plugin
             $registry->registerProvider(new EntryUpdateEventProvider());
             $registry->registerProvider(new EntryCreateEventProvider());
 
-            if (Craft::$app->edition === CmsEdition::Pro) {
+            $craftEdition = version_compare(Craft::$app->getVersion(), '5.0.0', '<')
+                ? Craft::Pro
+                : craft\enums\CmsEdition::Pro;
+
+            if (Craft::$app->edition === $craftEdition) {
                 $registry->registerProvider(new UserCreateEventProvider());
                 $registry->registerProvider(new UserVerifyEmailEventProvider());
                 $registry->registerProvider(new UserUpdateEventProvider());
@@ -150,6 +153,7 @@ class MailCraft extends Plugin
 
             if (Craft::$app->plugins->isPluginEnabled('commerce')) {
                 $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderStatusChangeEventProvider());
+                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderCreatedEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderCompleteEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderRefundEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderPaidEventProvider());

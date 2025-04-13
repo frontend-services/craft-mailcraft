@@ -1,6 +1,6 @@
 # MailCraft for Craft CMS
 
-> **Client Friendly Email Notifications**
+> **Client friendly email notifications**
 
 MailCraft allows content managers to set up email notifications directly from the Craft CMS control 
 panel—no developer assistance required. Install once, and let your clients handle the rest.
@@ -64,11 +64,6 @@ Trigger: Commerce Order Status Changes
 New Status: Shipped
 Old Status: New
 ```
-
-## Requirements
-
-- Craft CMS 5.5.0 or later
-- PHP 8.2 or later
 
 ## Feature Requests & Contributions
 

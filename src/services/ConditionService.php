@@ -24,7 +24,11 @@ class ConditionService extends Component
     {
         parent::init();
 
-        $this->sections = Craft::$app->entries->allSections;
+        if (version_compare(Craft::$app->getVersion(), '5.0.0', '<')) {
+            $this->sections = Craft::$app->getSections()->getAllSections();
+        } else {
+            $this->sections = Craft::$app->entries->allSections;
+        }
     }
 
     public function getAllConditions(): array
@@ -69,7 +73,11 @@ class ConditionService extends Component
                 ]
             ];
 
-            $entryTypes = Craft::$app->entries->getEntryTypesBySectionId($section->id);
+            if (version_compare(Craft::$app->getVersion(), '5.0.0', '<')) {
+                $entryTypes = Craft::$app->getSections()->getSectionById($section->id)->getEntryTypes();
+            } else {
+                $entryTypes = Craft::$app->entries->getEntryTypesBySectionId($section->id);
+            }
             /** @var EntryType $entryType */
             foreach ($entryTypes as $entryType) {
                 $sectionOptions[] = [
@@ -106,7 +114,6 @@ class ConditionService extends Component
             return [];
         }
 
-//        $statuses = Craft::$app->commerce->getOrderStatuses()->getAllOrderStatuses();
         $statuses = \craft\commerce\records\OrderStatus::find()->all();
         $options = [
             [

@@ -2,7 +2,7 @@
   "name": "frontend-services/craft-mailcraft",
   "description": "Sending transactional emails on various events",
   "type": "craft-plugin",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "proprietary",
   "support": {
     "email": "mato@frontend.services",
@@ -12,8 +12,8 @@
     "rss": "https://github.com/frontend-services/craft-mailcraft/releases.atom"
   },
   "require": {
-    "php": ">=8.2",
-    "craftcms/cms": "^5.5.0"
+    "php": "^8.0",
+    "craftcms/cms": "^4.0.0 || ^5.0.0"
   },
   "require-dev": {
     "craftcms/ecs": "dev-main",
@@ -39,7 +39,7 @@
   "config": {
     "sort-packages": true,
     "platform": {
-      "php": "8.2"
+      "php": "8.0"
     },
     "allow-plugins": {
       "yiisoft/yii2-composer": true,
