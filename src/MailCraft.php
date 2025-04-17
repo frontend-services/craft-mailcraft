@@ -14,12 +14,14 @@ use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
+use frontendservices\mailcraft\events\providers\SystemUpdatesAvailableEventProvider;
 use frontendservices\mailcraft\events\providers\UserActivateEventProvider;
 use frontendservices\mailcraft\events\providers\UserCreateEventProvider;
 use frontendservices\mailcraft\events\providers\UserUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\UserVerifyEmailEventProvider;
 use frontendservices\mailcraft\models\Settings;
 use frontendservices\mailcraft\services\ConditionService;
+use frontendservices\mailcraft\services\DataService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\services\EventRegistry;
 use frontendservices\mailcraft\variables\MailCraftVariable;
@@ -39,10 +41,11 @@ use yii\base\InvalidConfigException;
  * @property-read Settings $settings
  * @property-read ConditionService $conditionService
  * @property-read EventRegistry $eventRegistry
+ * @property-read DataService $dataService
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.0.1';
+    public string $schemaVersion = '1.1.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;
@@ -66,6 +69,7 @@ class MailCraft extends Plugin
             'components' => [
                 'emailService' => ['class' => 'frontendservices\mailcraft\services\EmailService'],
                 'conditionService' => ['class' => 'frontendservices\mailcraft\services\ConditionService'],
+                'dataService' => ['class' => 'frontendservices\mailcraft\services\DataService'],
             ],
         ];
     }
@@ -84,6 +88,7 @@ class MailCraft extends Plugin
             'conditionService' => ConditionService::class,
             'emailService' => EmailService::class,
             'eventRegistry' => EventRegistry::class,
+            'dataService' => DataService::class,
         ]);
 
         // Register variable
@@ -137,14 +142,19 @@ class MailCraft extends Plugin
         $registry = $this->get('eventRegistry');
 
         if ($registry) {
+            /** Entry events */
             $registry->registerProvider(new EntryUpdateEventProvider());
             $registry->registerProvider(new EntryCreateEventProvider());
+
+            /** System events */
+            $registry->registerProvider(new SystemUpdatesAvailableEventProvider());
 
             $craftEdition = version_compare(Craft::$app->getVersion(), '5.0.0', '<')
                 ? Craft::Pro
                 : craft\enums\CmsEdition::Pro;
 
             if (Craft::$app->edition === $craftEdition) {
+                /** User events */
                 $registry->registerProvider(new UserCreateEventProvider());
                 $registry->registerProvider(new UserVerifyEmailEventProvider());
                 $registry->registerProvider(new UserUpdateEventProvider());
@@ -152,13 +162,13 @@ class MailCraft extends Plugin
             }
 
             if (Craft::$app->plugins->isPluginEnabled('commerce')) {
+                /** Commerce events */
                 $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderStatusChangeEventProvider());
                 $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderCreatedEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderCompleteEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderRefundEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderPaidEventProvider());
 //                $registry->registerProvider(new \frontendservices\mailcraft\events\providers\CommerceOrderRefundedEventProvider());
-
             }
         }
     }

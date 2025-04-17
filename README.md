@@ -3,9 +3,14 @@
 > **Client friendly email notifications**
 
 MailCraft allows content managers to set up email notifications directly from the Craft CMS control 
-panel—no developer assistance required. Install once, and let your clients handle the rest.
+panel - no developer assistance required. Install once, and let your clients handle the rest.
 
 ![MailCraft Logo](./assets/screenshot.png)
+
+## What's New 🚀
+
+- **System Update Notifications**: Get notified when Craft CMS updates are available (v1.1.0)
+- **Craft CMS 4 Support**: Now fully compatible with Craft CMS 4 (v1.0.2)
 
 ## Key Features
 
@@ -15,55 +20,33 @@ panel—no developer assistance required. Install once, and let your clients han
 - **Conditional Logic**: Target specific users or content with powerful filtering options
 - **Zero Code Required**: All configuration happens in the admin interface
 
-## Available Triggers
+## Event Triggers & Notification Types
 
-### Entry Events
-- **Entry Created**: Send notifications when new content is published
-- **Entry Updated**: Alert team members when existing content changes
-- **Filtering Options**: Target by section, entry type, status, field values, and more
+MailCraft supports various event types to help you automate your notifications:
 
-### User Events
-- **User Created**: Welcome new registrations automatically
-- **User Updated**: React to profile changes or important user updates
-- **User Activated**: Send onboarding materials when accounts become active
-- **Email Verified**: Acknowledge successful verification steps
-- **Filtering Options**: Target by user group, custom fields, and more
+### Content Events
+- **Entry Created** - Send notifications when new content is published
+- **Entry Updated** - Alert team members when existing content changes
+- **Filtering** - Target by section, entry type, status, field values, and more
 
-### Commerce events
-- **Order Created**: Notify users when they place an order
-- **Order Status Changed**: Alert users when their order status changes
+### User Management
+- **User Created** - Welcome new registrations automatically or notify admins
+- **User Updated** - React to profile changes or important user updates
+- **User Activated** - Send onboarding materials when accounts become active
+- **Email Verified** - Acknowledge successful verification steps
+- **Filtering** - Target by user group, custom fields, and more
+
+### E-Commerce
+- **Order Created** - Notify users when they place an order or alert admins
+- **Order Status Changed** - Alert users when their order status changes
+
+### System Notifications
+- **Updates Available** - Get notified when a new version of Craft CMS or plugins is available
 
 ### Missing an Event? ⚠️
 
 If you need a specific event that isn't currently supported, please let us know! Give us a shout at 
 [mailcraft.dev](https://mailcraft.dev) or open an issue on GitHub.
-
-## Example Use Cases
-
-### Delayed Welcome Sequence
-```
-Trigger: User is Activated
-Delay: 604800 seconds (7 days)
-```
-
-### Internal Review Notifications
-```
-Trigger: Entry Created
-Extra Conditions: entry.section.handle == "newsArticles" and entry.approved != true
-```
-
-### Company Domain Registration Alerts
-```
-Trigger: User is Created
-Extra Conditions: user.email ends with "@company.com"
-```
-
-### Email customer when the order has been shipped
-```
-Trigger: Commerce Order Status Changes
-New Status: Shipped
-Old Status: New
-```
 
 ## Feature Requests & Contributions
 
@@ -72,3 +55,9 @@ We're actively developing MailCraft and welcome community input:
 - **Issues & Requests**: [Open an issue on GitHub](https://github.com/frontend-services/craft-mailcraft/issues)
 - **Contact**: Reach out at [mailcraft.dev](https://mailcraft.dev)
 - **Contribute**: Pull requests welcome for features that benefit the community
+
+## Roadmap
+
+- More Event Types
+- CKEditor Toolbar Customization
+- Twig variable suggestions

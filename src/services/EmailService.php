@@ -122,6 +122,10 @@ class EmailService extends Component
                 return null;
             }
 
+            // fix &gt; and &lt; to < and > inside of {% %} and {{ }}
+            $string = preg_replace('/({[{%][^}]*?)&gt;([^}]*?[%}])/', '$1>$2', $string);
+            $string = preg_replace('/({[{%][^}]*?)&lt;([^}]*?[%}])/', '$1<$2', $string);
+
             return Craft::$app->view->renderString($string, $variables);
         } catch (LoaderError|SyntaxError $e) {
             Craft::error('Error rendering email template: ' . $e->getMessage(), __METHOD__);

@@ -1,10 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="191.211 109.011 180 180" width="180" height="180">
-  <rect x="191.211" y="109.011" width="180" height="180" rx="25" ry="25" fill="#4a86e8"/>
-  <rect x="221.211" y="159.011" width="120" height="80" rx="5" ry="5" fill="#fff"/>
-  <rect x="241.211" y="181.011" width="80" height="8" rx="4" ry="4" fill="#4a86e8"/>
-  <rect x="241.211" y="196.011" width="60" height="8" rx="4" ry="4" fill="#4a86e8"/>
-  <rect x="241.211" y="211.011" width="40" height="8" rx="4" ry="4" fill="#4a86e8"/>
-  <circle cx="331.211" cy="149.011" r="20" fill="#ff5252"/>
-  <rect x="328.711" y="136.011" width="5" height="18" rx="2.5" ry="2.5" fill="#fff"/>
-  <circle cx="331.211" cy="161.011" r="2.5" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <defs>
+    <radialGradient id="b" cx="100%" cy="100%" r="60%" fx="100%" fy="100%">
+      <stop offset="0%" stop-color="rgba(255, 213, 79, 0.5)"/>
+      <stop offset="100%" stop-color="rgba(255, 213, 79, 0)"/>
+    </radialGradient>
+    <linearGradient id="a" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a3b5d"/>
+      <stop offset="100%" stop-color="#3871C1"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="160" height="160" rx="32" ry="32" fill="url(#a)"/>
+  <rect x="10" y="10" width="160" height="160" rx="32" ry="32" fill="url(#b)"/>
+  <rect x="40" y="60" width="100" height="70" rx="5" ry="5" fill="#fff"/>
+  <rect x="55" y="80" width="70" height="7" rx="3.5" ry="3.5" fill="#3871C1"/>
+  <rect x="55" y="95" width="50" height="7" rx="3.5" ry="3.5" fill="#3871C1"/>
+  <rect x="55" y="110" width="30" height="7" rx="3.5" ry="3.5" fill="#3871C1"/>
+  <circle cx="130" cy="50" r="18" fill="#FFD54F"/>
+  <rect x="127.5" y="40" width="5" height="15" rx="2.5" ry="2.5" fill="#fff"/>
+  <circle cx="130" cy="60" r="2.5" fill="#fff"/>
 </svg>

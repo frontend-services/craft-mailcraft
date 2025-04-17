@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.1.0 - 2025-04-17
+- Added notification for system updates
+
 ## 1.0.2 - 2025-04-13
 - Added support for Craft CMS 4
 - Improved error handling for email sending
