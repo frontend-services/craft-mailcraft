@@ -67,6 +67,15 @@ class Install extends Migration
             'uid' => $this->uid(),
         ]);
 
+        $this->createTable('{{%mailcraft_data}}', [
+            'id' => $this->primaryKey(),
+            'key' => $this->string(255)->notNull(),
+            'value' => $this->text(),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
         return true;
     }
 
@@ -80,6 +89,13 @@ class Install extends Migration
             '{{%mailcraft_emailtemplates}}',
             'event',
             false
+        );
+
+        $this->createIndex(
+            null,
+            '{{%mailcraft_data}}',
+            'key',
+            true
         );
     }
 
