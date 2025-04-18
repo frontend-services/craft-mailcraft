@@ -13,11 +13,11 @@ use frontendservices\mailcraft\MailCraft;
  * @property-read array[] $userGroups
  * @property-read array[] $entryTypes
  * @property-read array[] $entrySections
+ * @property-read array $allConditions
  * @property-read array[] $orderStatuses
  */
 class ConditionService extends Component
 {
-//    private array $conditions = [];
     private array $sections = [];
 
     public function init(): void

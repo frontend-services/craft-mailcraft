@@ -64,7 +64,7 @@ class EmailTemplatesController extends Controller
      */
     public function actionEdit(?int $templateId = null, ?EmailTemplate $emailTemplate = null): Response
     {
-        $this->requireAdmin();
+        $this->requireAdmin(false);
 
         // Get the email template if one was provided
         if ($emailTemplate === null && $templateId !== null) {
@@ -96,7 +96,7 @@ class EmailTemplatesController extends Controller
     public function actionSave(): ?Response
     {
         $this->requirePostRequest();
-        $this->requireAdmin();
+        $this->requireAdmin(false);
 
         $templateId = $this->request->getBodyParam('templateId');
 
@@ -177,7 +177,7 @@ class EmailTemplatesController extends Controller
     public function actionDelete(): Response
     {
         $this->requirePostRequest();
-        $this->requireAdmin();
+        $this->requireAdmin(false);
 
         $templateId = $this->request->getRequiredBodyParam('templateId');
 
@@ -206,7 +206,7 @@ class EmailTemplatesController extends Controller
     public function actionPreview(): Response
     {
         $this->requirePostRequest();
-        $this->requireAdmin();
+        $this->requireAdmin(false);
         $this->requireAcceptsJson();
 
         $templateId = $this->request->getRequiredBodyParam('id');
@@ -244,7 +244,7 @@ class EmailTemplatesController extends Controller
     public function actionGetExamples(): Response
     {
         $this->requireAcceptsJson();
-        $this->requireAdmin();
+        $this->requireAdmin(false);
         $this->requirePostRequest();
 
         $providers = MailCraft::getInstance()->eventRegistry->getProviders();
