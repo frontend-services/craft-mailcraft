@@ -33,6 +33,7 @@ class Install extends Migration
     public function safeDown(): bool
     {
         $this->dropTableIfExists('{{%mailcraft_emailtemplates}}');
+        $this->dropTableIfExists('{{%mailcraft_data}}');
         return true;
     }
 
