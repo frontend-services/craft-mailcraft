@@ -69,7 +69,7 @@ class SystemUpdatesAvailableEventProvider extends AbstractEventProvider
      */
     public function checkForUpdates(): void
     {
-        $updates = Craft::$app->getCache()->getOrSet(self::CACHE_KEY, function() {
+        $updates = Craft::$app->getCache()->getOrSet(self::CACHE_KEY . MailCraft::getInstance()->getVersion(), function() {
             // Only proceed if update info is already cached by Craft
             if (!Craft::$app->getUpdates()->getIsUpdateInfoCached()) {
                 // Return false to not cache the output (will check again on next request)
@@ -162,6 +162,7 @@ class SystemUpdatesAvailableEventProvider extends AbstractEventProvider
             }
         }
         $result['totalCriticalUpdates'] += $result['cms']['isCritical'] ? 1 : 0;
+        $result['total'] = $result['totalUpdates'] + $result['totalCriticalUpdates'];
 
         return $result;
     }
@@ -206,10 +207,10 @@ class SystemUpdatesAvailableEventProvider extends AbstractEventProvider
         return [
             'id' => $this->getEventId(),
             'title' => 'Updates Available Notification',
-            'subject' => '{{ updates.totalUpdates }} Update(s) Available for {{ siteName }}',
+            'subject' => '{{ updates.total }} Update(s) Available for {{ siteName }}',
             'template' => '<h1>Updates Available for {{ siteName }}</h1>
 
-<p>There are {{ updates.totalUpdates }} update(s) available for your website.</p>
+<p>There are {{ updates.total }} update(s) available for your website.</p>
 
 {% if updates.hasCriticalUpdates %}
 <p><strong>⚠️ Critical updates are available! Please update as soon as possible.</strong></p>

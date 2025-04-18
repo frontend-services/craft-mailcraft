@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.1.1 - 2025-04-18
+- Update count improvement for system updates
+
 ## 1.1.0 - 2025-04-17
 - Added notification for system updates
 

@@ -41,7 +41,8 @@ MailCraft supports various event types to help you automate your notifications:
 - **Order Status Changed** - Alert users when their order status changes
 
 ### System Notifications
-- **Updates Available** - Get notified when a new version of Craft CMS or plugins is available
+- **Updates Available** - Get notified when a new version of Craft CMS or 
+plugins is available. Optionally trigger only on critical updates
 
 ### Missing an Event? ⚠️
 
