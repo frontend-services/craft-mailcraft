@@ -146,9 +146,14 @@ class SystemUpdatesAvailableEventProvider extends AbstractEventProvider
         // Plugin updates
         foreach ($updates['plugins'] as $handle => $plugin) {
             if (!empty($plugin)) {
+                $pluginObject = Craft::$app->getPlugins()->getPlugin($handle);
+                if ($pluginObject === null) {
+                    continue;
+                }
+
                 $result['plugins'][$handle] = [
                     'name' => $plugin["packageName"],
-                    'current' => Craft::$app->getPlugins()->getPlugin($handle)->getVersion(),
+                    'current' => $pluginObject->getVersion(),
                     'latest' => $plugin["releases"][0]["version"] ?? null,
                     'releaseDate' => $plugin["releases"][0]["date"] ?? null ? $plugin["releases"][0]["date"]->format('Y-m-d H:i:s') : null,
                     'isCritical' => $plugin->getHasCritical(),
