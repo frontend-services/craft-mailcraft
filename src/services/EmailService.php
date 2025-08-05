@@ -79,8 +79,6 @@ class EmailService extends Component
     {
         $emailVariables = [
             'subject' => $this->renderString($template->subject, $variables),
-            'to' => $this->renderString($template->to, $variables),
-            'toName' => $this->renderString($template->toName, $variables),
             'cc' => $this->renderString($template->cc, $variables),
             'bcc' => $this->renderString($template->bcc, $variables),
             'from' => $this->renderString($template->from, $variables),
@@ -90,10 +88,29 @@ class EmailService extends Component
         ];
 
         $sendTime = time() + $delay;
-        Craft::$app->queue->delay($delay)->push(new SendEmailJob([
-            'variables' => $emailVariables,
-            'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $emailVariables['subject'],
-        ]));
+
+        $emails = array_map(
+            'trim',
+            explode(',', $this->renderString($template->to, $variables)),
+        );
+
+        $names = [];
+        if (count($emails) > 1) {
+            $names = explode(',', $this->renderString($template->toName, $variables));
+        } else {
+            $names[] = $this->renderString($template->toName, $variables);
+        }
+
+        foreach ($emails as $index => $email) {
+            $emailVariables['to'] = $email;
+            $emailVariables['toName'] = $names[$index] ?? null;
+
+            Craft::$app->queue->delay($delay)->push(new SendEmailJob([
+                'variables' => $emailVariables,
+                'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $emailVariables['subject'],
+            ]));
+        }
+
     }
 
     /**

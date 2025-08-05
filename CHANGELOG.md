@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.2.1 - 2025-08-05
+- Send email to multiple recipients
+
 ## 1.2.0 - 2025-08-05
 - Added option to select CKEditor config
 
