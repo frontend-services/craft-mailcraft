@@ -20,6 +20,7 @@ use frontendservices\mailcraft\events\providers\UserCreateEventProvider;
 use frontendservices\mailcraft\events\providers\UserUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\UserVerifyEmailEventProvider;
 use frontendservices\mailcraft\models\Settings;
+use frontendservices\mailcraft\services\CkeditorService;
 use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\DataService;
 use frontendservices\mailcraft\services\EmailService;
@@ -42,6 +43,7 @@ use yii\base\InvalidConfigException;
  * @property-read ConditionService $conditionService
  * @property-read EventRegistry $eventRegistry
  * @property-read DataService $dataService
+ * @property-read CkeditorService $ckeditor
  */
 class MailCraft extends Plugin
 {
@@ -89,6 +91,7 @@ class MailCraft extends Plugin
             'emailService' => EmailService::class,
             'eventRegistry' => EventRegistry::class,
             'dataService' => DataService::class,
+            'ckeditor' => CkeditorService::class,
         ]);
 
         // Register variable
@@ -125,10 +128,27 @@ class MailCraft extends Plugin
      */
     protected function settingsHtml(): ?string
     {
-        return Craft::$app->view->renderTemplate('mailcraft/_settings.twig', [
+        $settings = $this->getSettings();
+        $variables = [
             'plugin' => $this,
-            'settings' => $this->getSettings(),
-        ]);
+            'settings' => $settings,
+        ];
+
+        if (\Craft::$app->plugins->isPluginInstalled('ckeditor')) {
+            $variables = array_merge($variables, $this->get('ckeditor')->getSettingsVariables() ?? []);
+
+            // Convert entry ids to entry types
+            $ckeditorSettings = $variables['settings']->ckeditor ?? [];
+            $ckeditorSettings['entryTypes'] = array_map(
+                static function($entryType) {
+                    return Craft::$app->getEntries()->getEntryTypeById((int)$entryType);
+                },
+                $ckeditorSettings['entryTypes'] ?? []
+            );
+            $variables['settings']->ckeditor = $ckeditorSettings;
+        }
+
+        return Craft::$app->view->renderTemplate('mailcraft/_settings.twig', $variables);
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace frontendservices\mailcraft\models;
 
 use craft\base\Model;
+use frontendservices\mailcraft\MailCraft;
 
 /**
  * MailCraft settings
@@ -20,9 +21,14 @@ class Settings extends Model
     public bool $useWysiwyg = true;
 
     /**
-     * @var bool Wheter to show CC and BCC fields in the email template editor
+     * @var bool Whether to show CC and BCC fields in the email template editor
      */
     public bool $showCcBcc = false;
+
+    /**
+     * @var mixed|null CKEditor plugin instance if available
+     */
+    public mixed $ckeditor = null;
 
     /**
      * @inheritdoc

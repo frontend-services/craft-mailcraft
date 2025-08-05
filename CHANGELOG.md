@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.2.0 - 2025-08-05
+- Added option to select CKEditor config
+
 ## 1.1.2 - 2025-04-18
 - Various fixes
 

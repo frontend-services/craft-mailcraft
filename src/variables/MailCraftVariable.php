@@ -74,18 +74,16 @@ class MailCraftVariable
         $pluginSettings = MailCraft::getInstance()->getSettings();
 
         if (Craft::$app->plugins->isPluginEnabled('ckeditor') && $pluginSettings->useWysiwyg) {
-            $field = new \craft\ckeditor\Field([
-                'handle' => $handle,
-                'name' => $name,
-                'instructions' => $instructions,
-                'required' => true,
-            ]);
-            Event::on(
-                Field::class,
-                Field::EVENT_MODIFY_CONFIG,
-                static function(ModifyConfigEvent $event) {
-                    $event->toolbar[] = 'sourceEditing';
-                }
+            $field = new \craft\ckeditor\Field(
+                array_merge(
+                    [
+                        'handle' => $handle,
+                        'name' => $name,
+                        'instructions' => $instructions,
+                        'required' => true,
+                    ],
+                    $pluginSettings->ckeditor ?? []
+                )
             );
 
             $ckEditor = $field->getInputHtml($template, null, false);
