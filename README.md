@@ -43,6 +43,7 @@ MailCraft supports various event types to help you automate your notifications:
 ### System Notifications
 - **Updates Available** - Get notified when a new version of Craft CMS or 
 plugins is available. Optionally trigger only on critical updates
+- **Failed Queue Job** - Notify admins when a queue job fails
 
 ### Missing an Event? ⚠️
 
@@ -62,3 +63,4 @@ We're actively developing MailCraft and welcome community input:
 - More Event Types
 - CKEditor Toolbar Customization
 - Twig variable suggestions
+- Improved admin UI/UX

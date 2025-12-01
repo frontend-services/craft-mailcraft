@@ -1,5 +1,9 @@
 # Release Notes for MailCraft
 
+## 1.2.2 - 2025-11-28
+- Added provider for failed queue jobs
+- Update label
+
 ## 1.2.1 - 2025-08-05
 - Send email to multiple recipients
 

@@ -14,6 +14,7 @@ use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
+use frontendservices\mailcraft\events\providers\SystemQueueFailEventProvider;
 use frontendservices\mailcraft\events\providers\SystemUpdatesAvailableEventProvider;
 use frontendservices\mailcraft\events\providers\UserActivateEventProvider;
 use frontendservices\mailcraft\events\providers\UserCreateEventProvider;
@@ -168,6 +169,7 @@ class MailCraft extends Plugin
 
             /** System events */
             $registry->registerProvider(new SystemUpdatesAvailableEventProvider());
+            $registry->registerProvider(new SystemQueueFailEventProvider());
 
             $craftEdition = version_compare(Craft::$app->getVersion(), '5.0.0', '<')
                 ? Craft::Pro
