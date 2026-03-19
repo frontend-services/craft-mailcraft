@@ -9,8 +9,8 @@ panel - no developer assistance required. Install once, and let your clients han
 
 ## What's New 🚀
 
-- **System Update Notifications**: Get notified when Craft CMS updates are available (v1.1.0)
-- **Craft CMS 4 Support**: Now fully compatible with Craft CMS 4 (v1.0.2)
+- **Compatible with V5 CKEditor plugin version**: MailCraft now works seamlessly with the latest CKEditor plugin for Craft CMS.
+- **Full CKEditor toolbar builder**: Choose from all available CKEditor toolbar options when configuring your email templates.
 
 ## Key Features
 

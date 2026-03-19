@@ -74,6 +74,54 @@ class MailCraftVariable
         $pluginSettings = MailCraft::getInstance()->getSettings();
 
         if (Craft::$app->plugins->isPluginEnabled('ckeditor') && $pluginSettings->useWysiwyg) {
+            // Old versions may have stored ckeditor settings as a non-array
+            $ckeditorSettings = $pluginSettings->ckeditor ?? [];
+            if (!is_array($ckeditorSettings)) {
+                $ckeditorSettings = [];
+            }
+
+            // toolbar: JSON array string (new visual builder) or comma-separated string (old format)
+            $toolbar = $ckeditorSettings['toolbar'] ?? null;
+            if (is_string($toolbar)) {
+                $decoded = json_decode($toolbar, true);
+                $ckeditorSettings['toolbar'] = is_array($decoded)
+                    ? $decoded
+                    : array_values(array_filter(array_map('trim', explode(',', $toolbar))));
+            } elseif (!is_array($toolbar)) {
+                unset($ckeditorSettings['toolbar']); // let Field use its own default
+            }
+
+            // headingLevels: stored as strings from the form; Field expects integers 1-6
+            // The checkboxSelectField hidden input may submit '' as first value — filter it out
+            $headingLevels = $ckeditorSettings['headingLevels'] ?? null;
+            if (is_array($headingLevels)) {
+                $ckeditorSettings['headingLevels'] = array_values(array_unique(array_filter(
+                    array_map('intval', $headingLevels),
+                    fn($v) => $v >= 1 && $v <= 6
+                )));
+            } elseif (!is_null($headingLevels)) {
+                unset($ckeditorSettings['headingLevels']); // let Field use its own default
+            }
+
+            // wordLimit/characterLimit: empty string from form must become null (Field type is ?int)
+            foreach (['wordLimit', 'characterLimit'] as $key) {
+                if (isset($ckeditorSettings[$key])) {
+                    $ckeditorSettings[$key] = $ckeditorSettings[$key] !== '' ? (int)$ckeditorSettings[$key] : null;
+                }
+            }
+
+            // Boolean settings: old versions may have stored as string "1"/"" etc.
+            foreach (['showWordCount', 'showUnpermittedVolumes', 'showUnpermittedFiles', 'purifyHtml'] as $boolKey) {
+                if (isset($ckeditorSettings[$boolKey])) {
+                    $ckeditorSettings[$boolKey] = (bool)$ckeditorSettings[$boolKey];
+                }
+            }
+
+            // entryTypes: old versions may have stored as "" — Field constructor handles [] fine
+            if (isset($ckeditorSettings['entryTypes']) && !is_array($ckeditorSettings['entryTypes'])) {
+                unset($ckeditorSettings['entryTypes']);
+            }
+
             $field = new \craft\ckeditor\Field(
                 array_merge(
                     [
@@ -82,11 +130,30 @@ class MailCraftVariable
                         'instructions' => $instructions,
                         'required' => true,
                     ],
-                    $pluginSettings->ckeditor ?? []
+                    $ckeditorSettings
                 )
             );
 
-            $ckEditor = $field->getInputHtml($template, null, false);
+            $ckEditor = $field->getInputHtml($template, null);
+
+            // Destroy existing CKEditor instances before PJAX replaces the DOM.
+            // Inline module scripts (no src) are NOT deduplicated by PJAX — without cleanup,
+            // navigating away and back causes a second create("template", config) call on the
+            // same element while the first editor is still alive → schema-cannot-register-item-twice.
+            Craft::$app->getView()->registerJs(<<<JS
+(function() {
+    if (window.__mailcraft_cke_cleanup) return;
+    window.__mailcraft_cke_cleanup = true;
+    \$(document).on('pjax:beforeReplace', function() {
+        document.querySelectorAll('.ck-editor__editable[contenteditable]').forEach(function(el) {
+            if (el.ckeditorInstance) {
+                el.ckeditorInstance.destroy().catch(function() {});
+            }
+        });
+    });
+})();
+JS, \craft\web\View::POS_END);
+
             $twig = <<<EOD
                 {% import "_includes/forms" as forms %}
                 {{ forms.field({

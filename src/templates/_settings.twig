@@ -28,14 +28,57 @@
     <hr>
 
     <h2>{{ "CKEditor Settings"|t('mailcraft') }}</h2>
-    {{ forms.componentSelectField({
-        label: 'CKEditor Config'|t('ckeditor'),
-        id: 'cke-config',
-        name: 'ckeditor[ckeConfig]',
-        options: plugin('ckeditor').ckeConfigs.getAll(),
-        value: (settings.ckeditor.ckeConfig ?? false) ? plugin('ckeditor').ckeConfigs.getByUid(settings.ckeditor.ckeConfig) : null,
-        limit: 1,
-        createAction: 'ckeditor/cke-configs/edit',
+
+    {{ forms.field({
+        label: 'Toolbar'|t('ckeditor'),
+        instructions: 'Drag toolbar items into the editor.'|t('ckeditor'),
+        id: 'toolbar',
+    }, null) }}
+    <div id="mailcraft-toolbar-builder" class="ckeditor-tb pane" data-available-items="{{ toolbarItems|json_encode|e('html_attr') }}">
+        <div class="ck ck-reset_all">
+            <div class="ckeditor-tb--items ckeditor-tb--source ck ck-reset ck-editor ck-rounded-corners">
+                <div class="ck ck-toolbar">
+                    <div class="ck ck-toolbar__items"></div>
+                </div>
+            </div>
+            <div class="ckeditor-tb--items ckeditor-tb--target ck ck-reset ck-editor ck-rounded-corners">
+                <div class="ck ck-editor__top">
+                    <div class="ck ck-toolbar">
+                        <div class="ck ck-toolbar__items"></div>
+                    </div>
+                </div>
+                <div class="ck ck-editor__main">
+                    <div class="ck ck-content ck-editor__editable ck-editor__editable_inline"></div>
+                </div>
+            </div>
+        </div>
+        {{ hiddenInput('ckeditor[toolbar]', toolbarJson) }}
+    </div>
+
+    <script type="module">
+        import { ToolbarBuilder } from '@craftcms/ckeditor-config';
+        {{ importStatements|raw }}
+
+        new ToolbarBuilder("{{ toolbarBuilderId }}", {
+            addSetting: () => {},
+            removeSetting: () => {},
+        }, [{{ plugins|join(',') }}]);
+    </script>
+
+    {{ forms.checkboxSelectField({
+        id: 'headingLevels',
+        name: 'ckeditor[headingLevels]',
+        label: 'Heading Levels'|t('ckeditor'),
+        instructions: 'Which heading levels should be available in the editor.'|t('ckeditor'),
+        options: [
+            {label: 'H1', value: '1'},
+            {label: 'H2', value: '2'},
+            {label: 'H3', value: '3'},
+            {label: 'H4', value: '4'},
+            {label: 'H5', value: '5'},
+            {label: 'H6', value: '6'},
+        ],
+        values: settings.ckeditor.headingLevels ?? [1, 2, 3, 4, 5, 6],
     }) }}
 
     {{ forms.textField({
@@ -50,6 +93,18 @@
         errors: settings.getErrors('ckeditor.wordLimit'),
     }) }}
 
+    {{ forms.textField({
+        id: 'character-limit',
+        name: 'ckeditor[characterLimit]',
+        label: 'Character Limit'|t('ckeditor'),
+        value: settings.ckeditor.characterLimit ?? null,
+        type: 'number',
+        min: 0,
+        step: 1,
+        size: 5,
+        errors: settings.getErrors('ckeditor.characterLimit'),
+    }) }}
+
     {{ forms.lightswitchField({
         id: 'show-word-count',
         name: 'ckeditor[showWordCount]',
@@ -60,11 +115,10 @@
     {{ forms.lightswitchField({
         id: 'enable-source-editing-for-non-admins',
         name: 'ckeditor[enableSourceEditingForNonAdmins]',
-        label: 'Show the “Source” button for non-admin users?'|t('ckeditor'),
+        label: 'Show the "Source" button for non-admin users?'|t('ckeditor'),
         on: settings.ckeditor.enableSourceEditingForNonAdmins ?? false,
     }) }}
 
-    {% set entryTypes = entryTypeRows ?? [] %}
     {{ forms.entryTypeSelectField({
         label: 'Entry Types'|t('app'),
         instructions: 'Choose the types of entries that can be created in this field.'|t('app'),
@@ -74,24 +128,6 @@
         create: true,
         errors: settings.getErrors('ckeditor.entryTypes'),
         data: {'error-key': 'entryTypes'},
-    }) }}
-
-    {{ forms.lightswitchField({
-        id: 'expand-entry-buttons',
-        name: 'ckeditor[expandEntryButtons]',
-        label: 'Show toolbar buttons for entry types with icons'|t('ckeditor'),
-        instructions: 'Whether entry types with icons should be shown as separate buttons in the toolbar.' |t('ckeditor'),
-        on: settings.ckeditor.expandEntryButtons ?? false,
-        reverseToggle: 'create-button-label-wrapper',
-    }) }}
-
-    {{ forms.textField({
-        label: '“New” Button Label'|t('app'),
-        instructions: 'The text label for the entry creation button.'|t('app'),
-        id: 'create-button-label',
-        name: 'ckeditor[createButtonLabel]',
-        value: settings.ckeditor.createButtonLabel ?? null,
-        errors: settings.getErrors('ckeditor.createButtonLabel'),
     }) }}
 
     <hr>
@@ -129,7 +165,7 @@
 
         {{ forms.checkboxField({
             label: 'Show unpermitted volumes'|t('ckeditor'),
-            instructions: 'Whether to show volumes that the user doesn’t have permission to view.'|t('ckeditor'),
+            instructions: 'Whether to show volumes that the user doesn\'t have permission to view.'|t('ckeditor'),
             id: 'showUnpermittedVolumes',
             name: 'ckeditor[showUnpermittedVolumes]',
             checked: settings.ckeditor.showUnpermittedVolumes ?? false,
@@ -137,7 +173,7 @@
 
         {{ forms.checkboxField({
             label: 'Show unpermitted files'|t('ckeditor'),
-            instructions: 'Whether to show files that the user doesn’t have permission to view, per the “View files uploaded by other users” permission.'|t('ckeditor'),
+            instructions: 'Whether to show files that the user doesn\'t have permission to view, per the "View files uploaded by other users" permission.'|t('ckeditor'),
             id: 'showUnpermittedFiles',
             name: 'ckeditor[showUnpermittedFiles]',
             checked: settings.ckeditor.showUnpermittedFiles ?? false,

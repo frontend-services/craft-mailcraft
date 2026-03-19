@@ -1,5 +1,9 @@
 # Release Notes for MailCraft
 
+## 1.2.3 - 2026-03-19
+- Compatibility with new CKEditor update
+- Added full CKEditor config support
+
 ## 1.2.2 - 2025-11-28
 - Added provider for failed queue jobs
 - Update label
