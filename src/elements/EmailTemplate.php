@@ -103,6 +103,23 @@ class EmailTemplate extends Element
 
     /**
      * @inheritdoc
+     */
+    public function getPreviewTargets(): array
+    {
+        if (!$this->id) {
+            return [];
+        }
+
+        return [
+            [
+                'label' => Craft::t('mailcraft', 'Preview'),
+                'url' => UrlHelper::actionUrl('mailcraft/email-templates/preview-iframe', ['templateId' => $this->id]),
+            ],
+        ];
+    }
+
+    /**
+     * @inheritdoc
      * @throws InvalidConfigException
      */
     protected function defineRules(): array

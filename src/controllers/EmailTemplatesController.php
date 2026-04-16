@@ -24,6 +24,10 @@ class EmailTemplatesController extends Controller
      */
     public function beforeAction($action): bool
     {
+        if ($action->id === 'preview-iframe') {
+            $this->enableCsrfValidation = false;
+        }
+
         // Check if user has permission to manage email templates
         if (!Craft::$app->user->checkPermission('mailcraft:manageEmailTemplates')) {
             throw new ForbiddenHttpException('User is not permitted to manage email templates');
@@ -197,7 +201,7 @@ class EmailTemplatesController extends Controller
     }
 
     /**
-     * Preview an email template
+     * Preview an email template (AJAX POST, returns JSON)
      *
      * @throws MethodNotAllowedHttpException
      * @throws BadRequestHttpException|NotFoundHttpException
@@ -232,6 +236,34 @@ class EmailTemplatesController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Preview an email template in an iframe (GET, returns HTML)
+     *
+     * @throws BadRequestHttpException|NotFoundHttpException
+     * @throws ForbiddenHttpException
+     */
+    public function actionPreviewIframe(): Response
+    {
+        $this->requireAdmin(false);
+
+        $templateId = $this->request->getRequiredQueryParam('templateId');
+
+        $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
+        if (!$emailTemplate) {
+            throw new NotFoundHttpException('Email template not found');
+        }
+
+        $sampleData = MailCraft::getInstance()->emailService->getSampleData($emailTemplate->event);
+
+        try {
+            $html = Craft::$app->view->renderString($emailTemplate->template, $sampleData);
+        } catch (Throwable $e) {
+            $html = '<pre style="color:red">' . htmlspecialchars($e->getMessage()) . '</pre>';
+        }
+
+        return $this->asRaw($html);
     }
 
     /**

@@ -61,6 +61,5 @@ We're actively developing MailCraft and welcome community input:
 ## Roadmap
 
 - More Event Types
-- CKEditor Toolbar Customization
 - Twig variable suggestions
 - Improved admin UI/UX

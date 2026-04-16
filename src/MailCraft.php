@@ -14,12 +14,17 @@ use craft\services\UserPermissions;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\events\providers\AssetCreateEventProvider;
+use frontendservices\mailcraft\events\providers\AssetDeleteEventProvider;
+use frontendservices\mailcraft\events\providers\AssetUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
+use frontendservices\mailcraft\events\providers\EntryDeleteEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\SystemQueueFailEventProvider;
 use frontendservices\mailcraft\events\providers\SystemUpdatesAvailableEventProvider;
 use frontendservices\mailcraft\events\providers\UserActivateEventProvider;
 use frontendservices\mailcraft\events\providers\UserCreateEventProvider;
+use frontendservices\mailcraft\events\providers\UserDeleteEventProvider;
 use frontendservices\mailcraft\events\providers\UserUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\UserVerifyEmailEventProvider;
 use frontendservices\mailcraft\models\Settings;
@@ -210,6 +215,10 @@ class MailCraft extends Plugin
             /** Entry events */
             $registry->registerProvider(new EntryUpdateEventProvider());
             $registry->registerProvider(new EntryCreateEventProvider());
+            $registry->registerProvider(new EntryDeleteEventProvider());
+            $registry->registerProvider(new AssetCreateEventProvider());
+            $registry->registerProvider(new AssetUpdateEventProvider());
+            $registry->registerProvider(new AssetDeleteEventProvider());
 
             /** System events */
             $registry->registerProvider(new SystemUpdatesAvailableEventProvider());
@@ -225,6 +234,7 @@ class MailCraft extends Plugin
                 $registry->registerProvider(new UserVerifyEmailEventProvider());
                 $registry->registerProvider(new UserUpdateEventProvider());
                 $registry->registerProvider(new UserActivateEventProvider());
+                $registry->registerProvider(new UserDeleteEventProvider());
             }
 
             if (Craft::$app->plugins->isPluginEnabled('commerce')) {
