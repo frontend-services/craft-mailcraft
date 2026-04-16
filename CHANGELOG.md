@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.2.4 - 2026-04-16
+- Added more events - Asset Created, Asset Updated, Asset Deleted, Entry Deleted, User Deleted
+
 ## 1.2.3 - 2026-03-19
 - Compatibility with new CKEditor update
 - Added full CKEditor config support
