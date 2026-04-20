@@ -68,7 +68,7 @@ class EmailTemplatesController extends Controller
      */
     public function actionEdit(?int $templateId = null, ?EmailTemplate $emailTemplate = null): Response
     {
-        $this->requireAdmin(false);
+        $this->requirePermission('mailcraft:manageEmailTemplates');
 
         // Get the email template if one was provided
         if ($emailTemplate === null && $templateId !== null) {
@@ -100,7 +100,7 @@ class EmailTemplatesController extends Controller
     public function actionSave(): ?Response
     {
         $this->requirePostRequest();
-        $this->requireAdmin(false);
+        $this->requirePermission('mailcraft:manageEmailTemplates');
 
         $templateId = $this->request->getBodyParam('templateId');
 
@@ -181,7 +181,7 @@ class EmailTemplatesController extends Controller
     public function actionDelete(): Response
     {
         $this->requirePostRequest();
-        $this->requireAdmin(false);
+        $this->requirePermission('mailcraft:manageEmailTemplates');
 
         $templateId = $this->request->getRequiredBodyParam('templateId');
 
@@ -210,7 +210,7 @@ class EmailTemplatesController extends Controller
     public function actionPreview(): Response
     {
         $this->requirePostRequest();
-        $this->requireAdmin(false);
+        $this->requirePermission('mailcraft:manageEmailTemplates');
         $this->requireAcceptsJson();
 
         $templateId = $this->request->getRequiredBodyParam('id');
@@ -246,7 +246,7 @@ class EmailTemplatesController extends Controller
      */
     public function actionPreviewIframe(): Response
     {
-        $this->requireAdmin(false);
+        $this->requirePermission('mailcraft:manageEmailTemplates');
 
         $templateId = $this->request->getRequiredQueryParam('templateId');
 
@@ -276,7 +276,7 @@ class EmailTemplatesController extends Controller
     public function actionGetExamples(): Response
     {
         $this->requireAcceptsJson();
-        $this->requireAdmin(false);
+        $this->requirePermission('mailcraft:manageEmailTemplates');
         $this->requirePostRequest();
 
         $providers = MailCraft::getInstance()->eventRegistry->getProviders();

@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.2.5 - 2026-04-20
+- Permissions fix
+
 ## 1.2.4 - 2026-04-16
 - Added more events - Asset Created, Asset Updated, Asset Deleted, Entry Deleted, User Deleted
 
