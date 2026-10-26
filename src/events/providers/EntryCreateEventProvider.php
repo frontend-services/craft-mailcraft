@@ -42,10 +42,15 @@ class EntryCreateEventProvider extends AbstractEventProvider
             static function(ModelEvent $event) use ($handler) {
                 /** @var Entry $entry */
                 $entry = $event->sender;
+
+                if ($entry->sectionId === null) {
+                    return;
+                }
+
                 if (
-                    ($event->sender->enabled && $event->sender->getEnabledForSite()) &&
-                    $event->sender->firstSave &&
-                    !$event->sender->propagating
+                    ($entry->enabled && $entry->getEnabledForSite()) &&
+                    $entry->firstSave &&
+                    !$entry->propagating
                 ) {
                     $handler(['entry' => $entry]);
                 }
@@ -120,11 +125,11 @@ class EntryCreateEventProvider extends AbstractEventProvider
             return false;
         }
 
-        if (isset($template->condition1) && $template->condition1 && $entry->section->handle !== $template->condition1) {
+        if (isset($template->condition1) && $template->condition1 && $entry->getSection()?->handle !== $template->condition1) {
             return false;
         }
 
-        if (isset($template->condition2) && $template->condition2 && $entry->type->handle !== $template->condition2) {
+        if (isset($template->condition2) && $template->condition2 && $entry->getType()->handle !== $template->condition2) {
             return false;
         }
 

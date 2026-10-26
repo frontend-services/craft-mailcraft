@@ -42,6 +42,11 @@ class EntryUpdateEventProvider extends AbstractEventProvider
             static function(ModelEvent $event) use ($handler) {
                 /** @var Entry $entry */
                 $entry = $event->sender;
+
+                if ($entry->sectionId === null) {
+                    return;
+                }
+
                 if (
                     !($entry->getIsDraft()) &&
                     !($entry->duplicateOf && $entry->getIsCanonical() && !$entry->updatingFromDerivative) &&
@@ -125,11 +130,11 @@ class EntryUpdateEventProvider extends AbstractEventProvider
             return false;
         }
 
-        if (isset($template->condition1) && $template->condition1 && $entry->section->handle !== $template->condition1) {
+        if (isset($template->condition1) && $template->condition1 && $entry->getSection()?->handle !== $template->condition1) {
             return false;
         }
 
-        if (isset($template->condition2) && $template->condition2 && $entry->type->handle !== $template->condition2) {
+        if (isset($template->condition2) && $template->condition2 && $entry->getType()->handle !== $template->condition2) {
             return false;
         }
 
