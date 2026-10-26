@@ -126,15 +126,6 @@ class SystemQueueFailEventProvider extends AbstractEventProvider
      */
     public function testConditions($template, $variables): bool
     {
-        if (isset($template->conditions) && $template->conditions) {
-            try {
-                $twig = Craft::$app->getView()->renderString("{{" . $template->conditions . "}}", $variables);
-                return Craft::$app->getView()->renderString($twig) === "1";
-            } catch (\Throwable $e) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->matchesExtraConditions($template, $variables);
     }
 }

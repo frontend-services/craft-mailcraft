@@ -292,6 +292,6 @@ Released: {{ updates.cms.releaseDate | date("F j, Y") }}</p>
             return false;
         }
 
-        return true;
+        return $this->matchesExtraConditions($template, $variables);
     }
 }

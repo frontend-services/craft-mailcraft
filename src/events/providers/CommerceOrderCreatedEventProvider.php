@@ -123,16 +123,6 @@ class CommerceOrderCreatedEventProvider extends AbstractEventProvider
      */
     public function testConditions($template, $variables): bool
     {
-        // Check for custom conditions if any
-        if (isset($template->conditions) && $template->conditions) {
-            try {
-                $twig = Craft::$app->getView()->renderString("{{".$template->conditions."}}", $variables);
-                return Craft::$app->getView()->renderString($twig) === "1";
-            } catch (\Throwable $e) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->matchesExtraConditions($template, $variables);
     }
 }

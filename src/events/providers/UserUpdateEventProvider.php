@@ -115,17 +115,6 @@ class UserUpdateEventProvider extends AbstractEventProvider
             return false;
         }
 
-        if (isset($template->conditions) && $template->conditions) {
-            $twig = Craft::$app->getView()->renderString("{{".$template->conditions."}}", [
-                'user' => $user,
-            ]);
-            try {
-                return Craft::$app->getView()->renderString($twig) === "1";
-            } catch (\Throwable $e) {
-                return false;
-            }
-        }
-
-        return true;
+        return $this->matchesExtraConditions($template, $variables);
     }
 }

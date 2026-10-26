@@ -1,8 +1,7 @@
 <?php
 namespace frontendservices\mailcraft\base;
 
-use Twig\Error\LoaderError;
-use Twig\Error\SyntaxError;
+use Craft;
 
 abstract class AbstractEventProvider
 {
@@ -86,8 +85,51 @@ abstract class AbstractEventProvider
      * @param $template
      * @param $variables
      * @return bool
-     * @throws LoaderError
-     * @throws SyntaxError
      */
     abstract public function testConditions($template, $variables): bool;
+
+    /**
+     * Evaluates the template's free-form Twig "Extra Conditions" expression against the
+     * event variables.
+     *
+     * Returns true when the field is empty. Returns false, and logs a warning, when the
+     * expression fails to compile or evaluate, so a broken condition only silences its own
+     * template.
+     *
+     * @param $template The EmailTemplate element
+     * @param array $variables Event variables passed to the Twig expression
+     * @return bool
+     */
+    protected function matchesExtraConditions($template, array $variables): bool
+    {
+        $expression = trim((string)($template->conditions ?? ''));
+
+        if ($expression === '') {
+            return true;
+        }
+
+        // Strip the outer {{ }} if the user included them
+        if (str_starts_with($expression, '{{') && str_ends_with($expression, '}}')) {
+            $expression = trim(substr($expression, 2, -2));
+        }
+
+        try {
+            $result = Craft::$app->getView()->renderString(
+                '{{ (' . $expression . ') ? 1 : 0 }}',
+                $variables
+            );
+
+            return trim($result) === '1';
+        } catch (\Throwable $e) {
+            Craft::warning(sprintf(
+                'MailCraft: extra conditions of email template "%s" (#%s, event %s) could not be evaluated and the email was skipped: %s',
+                $template->title ?? '',
+                $template->id ?? '?',
+                $this->getEventId(),
+                $e->getMessage()
+            ), __METHOD__);
+
+            return false;
+        }
+    }
 }

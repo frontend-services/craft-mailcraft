@@ -217,16 +217,30 @@ class EmailService extends Component
                 ->event($provider->getEventId())
                 ->status(['enabled'])
                 ->all();
+        } catch (\Throwable $e) {
+            Craft::error('Error loading email templates for event ' . $provider->getEventId() . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString(), __METHOD__);
+            return;
+        }
 
-            foreach ($templates as $template) {
+        // Each template is isolated: a failure in one must not stop the others from sending.
+        foreach ($templates as $template) {
+            try {
                 if (!$provider->testConditions($template, $variables)) {
                     continue;
                 }
 
                 $this->queueEmail($template, $variables, $template->delay ?: self::QUEUE_DELAY);
+            } catch (\Throwable $e) {
+                Craft::error(sprintf(
+                    'Error handling email template "%s" (#%s) for event %s: %s%s%s',
+                    $template->title,
+                    $template->id,
+                    $provider->getEventId(),
+                    $e->getMessage(),
+                    "\n",
+                    $e->getTraceAsString()
+                ), __METHOD__);
             }
-        } catch (\Throwable $e) {
-            Craft::error('Error handling email trigger: ' . $e->getMessage() . "\n" . $e->getTraceAsString(), __METHOD__);
         }
     }
 }
