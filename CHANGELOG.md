@@ -1,5 +1,9 @@
 # Release Notes for MailCraft
 
+## 1.2.6 - 2026-10-26
+- Performance improvements/fixes
+- Improve failed queue job handling
+
 ## 1.2.5 - 2026-04-20
 - Permissions fix
 

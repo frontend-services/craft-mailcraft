@@ -4,6 +4,7 @@ namespace frontendservices\mailcraft\services;
 
 use Craft;
 use craft\base\Component;
+use craft\mail\Mailer;
 use craft\mail\Message;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
@@ -24,6 +25,11 @@ class EmailService extends Component
     private const QUEUE_DELAY = 0;
 
     /**
+     * The reason the most recent sendEmail() call failed, if known.
+     */
+    private ?string $lastError = null;
+
+    /**
      * Initialize email service
      *
      * @throws InvalidConfigException
@@ -42,6 +48,8 @@ class EmailService extends Component
      */
     public function sendEmail(array $variables = []): bool
     {
+        $this->lastError = null;
+
         try {
             $message = new Message();
 
@@ -65,11 +73,57 @@ class EmailService extends Component
             $message->setReplyTo($variables['replyTo']);
             $message->setHtmlBody($variables['message']);
 
-            return Craft::$app->mailer->send($message);
+            $logger = Craft::getLogger();
+            $logIndex = count($logger->messages);
+
+            if (Craft::$app->mailer->send($message)) {
+                return true;
+            }
+
+            $this->lastError = $this->findMailerError($logger->messages, $logIndex)
+                ?? 'The mailer returned false without an error message.';
+            Craft::error('Error sending email: ' . $this->lastError, __METHOD__);
+
+            return false;
         } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
             Craft::error('Error sending email: ' . $e->getMessage(), __METHOD__);
             return false;
         }
+    }
+
+    /**
+     * Returns the reason the most recent sendEmail() call failed, if known.
+     */
+    public function getLastError(): ?string
+    {
+        return $this->lastError;
+    }
+
+    /**
+     * Finds the most recent message logged by Craft's mailer.
+     *
+     * @param array $messages Yii logger message buffer (`[text, level, category, time, traces, memory]`)
+     * @param int $fromIndex Only look at messages logged from this index onwards
+     */
+    private function findMailerError(array $messages, int $fromIndex): ?string
+    {
+        // Keys can be strings when Yii profiling is on, so walk by position. If the buffer
+        // shrank, the logger flushed during send(); scan everything that is left.
+        $keys = array_keys($messages);
+        $start = count($keys) >= $fromIndex ? $fromIndex : 0;
+
+        for ($i = count($keys) - 1; $i >= $start; $i--) {
+            $entry = $messages[$keys[$i]];
+            $text = $entry[0] ?? null;
+            $category = $entry[2] ?? null;
+
+            if ($category === Mailer::class . '::send' && is_string($text)) {
+                return preg_replace('/^Error sending email: /', '', $text);
+            }
+        }
+
+        return null;
     }
 
     /**
