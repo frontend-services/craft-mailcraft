@@ -4,6 +4,7 @@ namespace frontendservices\mailcraft\events\providers;
 use Craft;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\helpers\TemplateHelper;
+use frontendservices\mailcraft\jobs\SendEmailJob;
 use yii\base\Event;
 use yii\queue\ExecEvent;
 use yii\queue\Queue;
@@ -38,6 +39,17 @@ class SystemQueueFailEventProvider extends AbstractEventProvider
             Queue::class,
             Queue::EVENT_AFTER_ERROR,
             static function(ExecEvent $event) use ($handler) {
+                // Never react to our own send job failing: the notification is itself
+                // a SendEmailJob, so a broken mail transport would queue failing jobs forever.
+                if ($event->job instanceof SendEmailJob) {
+                    return;
+                }
+
+                // Only notify once the queue has given up on the job, not on every retry.
+                if ($event->retry === true) {
+                    return;
+                }
+
                 $handler([
                     'job' => $event->job,
                     'error' => $event->error,
