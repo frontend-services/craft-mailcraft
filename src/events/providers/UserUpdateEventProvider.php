@@ -35,18 +35,82 @@ class UserUpdateEventProvider extends AbstractEventProvider
      */
     public function registerEventListener(callable $handler): void
     {
+        $captured = [];
+        $attributeLabels = [
+            'email' => 'Email',
+            'username' => 'Username',
+            'firstName' => 'First name',
+            'lastName' => 'Last name',
+            'fullName' => 'Full name',
+            'photoId' => 'Photo',
+            'admin' => 'Admin',
+            'active' => 'Status',
+            'pending' => 'Status',
+            'suspended' => 'Status',
+            'locked' => 'Locked',
+            'newPassword' => 'Password',
+            'password' => 'Password',
+            'unverifiedEmail' => 'Email',
+            'affiliatedSiteId' => 'Affiliated site',
+        ];
+
+        $ignoredAttributes = [
+            'uid', 'dateUpdated', 'lastLoginDate', 'lastLoginAttemptIp', 'invalidLoginCount',
+            'lastInvalidLoginAt', 'lockoutDate', 'verificationCode', 'verificationCodeIssuedDate',
+            'lastPasswordChangeDate', 'passwordResetRequired', 'hasDashboard', 'authError', 'inheritorOnDelete',
+        ];
+
+        // Dirty attributes/fields are only known before the save, so capture them here and hand them over once EVENT_AFTER_SAVE confirms the save went through.
+        Event::on(
+            User::class,
+            User::EVENT_BEFORE_SAVE,
+            static function(ModelEvent $event) use (&$captured, $attributeLabels, $ignoredAttributes) {
+                /** @var User $user */
+                $user = $event->sender;
+                if (!$user->id || $user->firstSave || $user->propagating || $user->resaving || $user->getIsDraft()) {
+                    return;
+                }
+
+                $changedLabels = [];
+                foreach ($user->getDirtyAttributes() as $attr) {
+                    if (in_array($attr, $ignoredAttributes, true)) {
+                        continue;
+                    }
+                    $label = $attributeLabels[$attr] ?? ucfirst($attr);
+                    $changedLabels[$label] = true;
+                }
+                if ($user->newPassword !== null) {
+                    $changedLabels['Password'] = true;
+                }
+                foreach ($user->getDirtyFields() as $fieldHandle) {
+                    $field = Craft::$app->getFields()->getFieldByHandle($fieldHandle);
+                    $label = $field ? $field->name : ucfirst($fieldHandle);
+                    $changedLabels[$label] = true;
+                }
+
+                $captured[$user->id] = array_keys($changedLabels);
+            }
+        );
+
         Event::on(
             User::class,
             User::EVENT_AFTER_SAVE,
-            static function(ModelEvent $event) use ($handler) {
+            static function(ModelEvent $event) use ($handler, &$captured) {
                 /** @var User $user */
                 $user = $event->sender;
+                $changedLabels = $captured[$user->id] ?? [];
+                unset($captured[$user->id]);
+
                 if (
                     !$user->getIsDraft() &&
                     !$user->firstSave &&
                     !$user->propagating
                 ) {
-                    $handler(['user' => $user]);
+                    $handler([
+                        'user' => $user,
+                        'changedFields' => $changedLabels,
+                        'changedFieldsList' => implode(', ', $changedLabels),
+                    ]);
                 }
             }
         );
@@ -60,15 +124,10 @@ class UserUpdateEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['user'] = [
             'type' => 'User',
-            'description' => 'User model',
-            'fields' => [
-                'username' => 'Username',
-                'email' => 'Email address',
-                'firstName' => 'First name',
-                'lastName' => 'Last name',
-            ]
+            'description' => 'The user that was updated',
+            'fields' => TemplateHelper::userFields(),
         ];
-
+        $variables += TemplateHelper::changedFieldsVariables();
         return $variables;
     }
 
@@ -83,6 +142,7 @@ class UserUpdateEventProvider extends AbstractEventProvider
             'subject' => 'User Updated: {{user.username}}',
             'template' => '<h1>User Profile Updated</h1>
 <p>The user "{{user.username}}" with email "{{user.email}}" has been updated.</p>
+{% if changedFieldsList %}<p><strong>Changed:</strong> {{changedFieldsList}}</p>{% endif %}
 <p>View user details <a href="{{user.cpEditUrl}}">here</a>.',
         ];
     }

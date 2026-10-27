@@ -12,6 +12,7 @@ use craft\ckeditor\web\assets\BaseCkeditorPackageAsset;
 use frontendservices\mailcraft\assetbundles\ckeditor\MailCraftCkeditorAsset;
 use craft\web\View;
 use frontendservices\mailcraft\MailCraft;
+use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\services\EventRegistry;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
@@ -349,9 +350,11 @@ EOT;
      */
     public function getEventTemplateVariables(): array
     {
+        $general = TemplateHelper::getGeneralVariables();
         $out = [];
         foreach (MailCraft::getInstance()->eventRegistry->getProviders() as $id => $provider) {
-            $out[$id] = $provider->getTemplateVariables();
+            $variables = $provider->getTemplateVariables();
+            $out[$id] = array_diff_key($variables, $general) + array_intersect_key($variables, $general);
         }
         return $out;
     }

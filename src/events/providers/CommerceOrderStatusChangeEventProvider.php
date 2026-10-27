@@ -64,32 +64,41 @@ class CommerceOrderStatusChangeEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['order'] = [
             'type' => 'Order',
-            'description' => 'Order model',
-            'fields' => [
-                'number' => 'Order number',
-                'reference' => 'Order reference',
-                'email' => 'Customer email',
-                'totalPrice' => 'Order total price',
-                'itemTotal' => 'Order item total',
-                'paymentCurrency' => 'Payment currency',
-                'dateOrdered' => 'Date ordered',
-                'dateCreated' => 'Date created',
-                'dateUpdated' => 'Date updated',
-                'customer' => 'Customer information',
-                'shippingAddress' => 'Shipping address',
-                'billingAddress' => 'Billing address',
-                'lineItems' => 'Order line items',
-            ]
+            'description' => 'The order whose status changed',
+            'fields' => TemplateHelper::orderFields(),
+        ];
+        $variables['newStatusName'] = [
+            'type' => 'string',
+            'description' => 'New status, display name',
+            'example' => '{{ newStatusName }}',
+        ];
+        $variables['oldStatusName'] = [
+            'type' => 'string',
+            'description' => 'Previous status, display name (may be empty)',
+            'example' => '{{ oldStatusName }}',
         ];
         $variables['newStatus'] = [
-            'type' => 'String',
-            'description' => 'New order status handle'
+            'type' => 'string',
+            'description' => 'New status handle',
+            'example' => '{{ newStatus }}',
         ];
         $variables['oldStatus'] = [
-            'type' => 'String',
-            'description' => 'Previous order status handle (may be null)'
+            'type' => 'string',
+            'description' => 'Previous status handle (may be empty)',
+            'example' => '{{ oldStatus }}',
         ];
-
+        $variables['orderHistory'] = [
+            'type' => 'OrderHistory',
+            'description' => 'The status change record',
+            'fields' => [
+                'message' => 'Status change message',
+                'dateCreated' => [
+                    'label' => 'Changed on',
+                    'example' => TemplateHelper::dateExample('orderHistory.dateCreated'),
+                ],
+                'user.fullName' => 'Changed by',
+            ],
+        ];
         return $variables;
     }
 
@@ -102,14 +111,14 @@ class CommerceOrderStatusChangeEventProvider extends AbstractEventProvider
             'id' => $this->getEventId(),
             'title' => 'Commerce Order Status Change Notification',
             'to' => '{{order.email}}',
-            'subject' => 'Your Order #{{order.number}} Status: {{newStatus}}',
+            'subject' => 'Your Order #{{order.number}} Status: {{newStatusName}}',
             'template' => '<h1>Order Status Update</h1>
 <p>Dear Customer,</p>
 
-<p>Your order #{{order.number}} status has been changed to <strong>{{newStatus}}</strong>.</p>
+<p>Your order #{{order.number}} status has been changed to <strong>{{newStatusName}}</strong>.</p>
 
 <p><strong>Order Date:</strong> {{order.dateOrdered|date("F j, Y")}}<br>
-<strong>Order Status:</strong> {{newStatus}}</p>
+<strong>Order Status:</strong> {{newStatusName}}</p>
 
 <h2>Order Items</h2>
 {{ craft.mailCraft.orderDetails(order) }}

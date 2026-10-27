@@ -295,8 +295,10 @@
                 var def = vars[key] || {};
                 if (def.fields && typeof def.fields === 'object') {
                     Object.keys(def.fields).forEach(function (field) {
-                        var label = def.fields[field];
-                        add('{{ ' + key + '.' + field + ' }}', typeof label === 'string' ? label : field);
+                        var fieldDef = def.fields[field];
+                        var label = typeof fieldDef === 'string' ? fieldDef : (fieldDef && fieldDef.label) || field;
+                        var snippet = (fieldDef && fieldDef.example) || ('{{ ' + key + '.' + field + ' }}');
+                        add(snippet, label);
                     });
                 } else {
                     add(def.example || ('{{ ' + key + ' }}'), def.description || '');

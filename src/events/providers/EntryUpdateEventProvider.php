@@ -36,16 +36,69 @@ class EntryUpdateEventProvider extends AbstractEventProvider
      */
     public function registerEventListener(callable $handler): void
     {
+        $captured = [];
+        $attributeLabels = [
+            'title' => 'Title',
+            'slug' => 'Slug',
+            'postDate' => 'Post date',
+            'expiryDate' => 'Expiry date',
+            'enabled' => 'Status',
+            'enabledForSite' => 'Status',
+            'authorId' => 'Author',
+            'authorIds' => 'Authors',
+            'typeId' => 'Entry type',
+            'parentId' => 'Parent',
+            'uri' => 'URI',
+        ];
+
+        // Dirty attributes/fields are only known before the save, so capture them here and hand them over once EVENT_AFTER_SAVE confirms the save went through.
+        Event::on(
+            Entry::class,
+            Element::EVENT_BEFORE_SAVE,
+            static function(ModelEvent $event) use (&$captured, $attributeLabels) {
+                /** @var Entry $entry */
+                $entry = $event->sender;
+                if (
+                    !$entry->id ||
+                    $entry->firstSave ||
+                    $entry->propagating ||
+                    $entry->resaving ||
+                    $entry->getIsDraft() ||
+                    $entry->getIsRevision()
+                ) {
+                    return;
+                }
+
+                $changedLabels = [];
+                foreach ($entry->getDirtyAttributes() as $attr) {
+                    if (in_array($attr, ['uid', 'dateUpdated', 'dateLastMerged', 'revisionNotes'], true)) {
+                        continue;
+                    }
+                    $label = $attributeLabels[$attr] ?? ucfirst($attr);
+                    $changedLabels[$label] = true;
+                }
+                foreach ($entry->getDirtyFields() as $fieldHandle) {
+                    $field = Craft::$app->getFields()->getFieldByHandle($fieldHandle);
+                    $label = $field ? $field->name : ucfirst($fieldHandle);
+                    $changedLabels[$label] = true;
+                }
+
+                $captured[$entry->id . ':' . $entry->siteId] = array_keys($changedLabels);
+            }
+        );
+
         Event::on(
             Entry::class,
             Element::EVENT_AFTER_SAVE,
-            static function(ModelEvent $event) use ($handler) {
+            static function(ModelEvent $event) use ($handler, &$captured) {
                 /** @var Entry $entry */
                 $entry = $event->sender;
-
                 if ($entry->sectionId === null) {
                     return;
                 }
+                $key = $entry->id . ':' . $entry->siteId;
+                $changedLabels = $captured[$key] ?? [];
+                unset($captured[$key]);
 
                 if (
                     !($entry->getIsDraft()) &&
@@ -57,7 +110,11 @@ class EntryUpdateEventProvider extends AbstractEventProvider
                     !$entry->resaving &&
                     !($entry->getIsRevision())
                 ) {
-                    $handler(['entry' => $entry]);
+                    $handler([
+                        'entry' => $entry,
+                        'changedFields' => $changedLabels,
+                        'changedFieldsList' => implode(', ', $changedLabels),
+                    ]);
                 }
             }
         );
@@ -71,15 +128,10 @@ class EntryUpdateEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['entry'] = [
             'type' => 'Entry',
-            'description' => 'Entry model',
-            'fields' => [
-                'title' => 'Entry title',
-                'url' => 'Entry URL',
-                'section' => 'Section name',
-                'type' => 'Entry type',
-            ]
+            'description' => 'The entry that was updated',
+            'fields' => TemplateHelper::entryFields(),
         ];
-
+        $variables += TemplateHelper::changedFieldsVariables();
         return $variables;
     }
 
@@ -94,6 +146,7 @@ class EntryUpdateEventProvider extends AbstractEventProvider
             'subject' => 'Content Updated: {{entry.title}}',
             'template' => '<h1>Entry Updated</h1>
 <p>The entry "{{entry.title}}" has been updated.</p>
+{% if changedFieldsList %}<p><strong>Changed:</strong> {{changedFieldsList}}</p>{% endif %}
 <p>View it <a href="{{entry.url}}">here</a>.</p>
 <p>Edit it <a href="{{entry.cpEditUrl}}">here</a>.</p>',
         ];

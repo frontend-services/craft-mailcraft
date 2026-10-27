@@ -181,26 +181,51 @@ class SystemUpdatesAvailableEventProvider extends AbstractEventProvider
         $variables['updates'] = [
             'type' => 'object',
             'description' => 'Information about available updates',
-            'fields' => [
-                'hasUpdates' => 'Boolean indicating if updates are available',
-                'hasCriticalUpdates' => 'Boolean indicating if critical updates are available',
-                'totalUpdates' => 'Total number of available updates',
-                'totalCriticalUpdates' => 'Total number of critical updates',
+            'sample' => [
+                'total' => 2,
+                'totalUpdates' => 2,
+                'totalCriticalUpdates' => 0,
+                'hasUpdates' => true,
+                'hasCriticalUpdates' => false,
                 'cms' => [
-                    'current' => 'Current Craft CMS version',
-                    'latest' => 'Latest available Craft CMS version',
-                    'releaseDate' => 'Release date of the latest version',
-                    'isCritical' => 'Boolean indicating if this is a critical update'
+                    'current' => Craft::$app->getVersion(),
+                    'latest' => Craft::$app->getVersion(),
+                    'releaseDate' => date('Y-m-d H:i:s'),
+                    'isCritical' => false,
                 ],
-                'plugins' => 'Array of plugin updates with details (name, current, latest, releaseDate, isCritical)'
-            ]
+                'plugins' => [
+                    'mailcraft' => [
+                        'name' => 'MailCraft',
+                        'current' => '1.2.0',
+                        'latest' => '1.3.0',
+                        'releaseDate' => date('Y-m-d H:i:s'),
+                        'isCritical' => false,
+                    ],
+                ],
+            ],
+            'fields' => [
+                'total' => 'Number of available updates',
+                'totalCriticalUpdates' => 'Number of critical updates',
+                'hasUpdates' => 'Updates available (true/false)',
+                'hasCriticalUpdates' => 'Critical updates available (true/false)',
+                'cms.current' => 'Installed Craft CMS version',
+                'cms.latest' => 'Latest Craft CMS version',
+                'cms.releaseDate' => [
+                    'label' => 'Craft CMS release date',
+                    'example' => TemplateHelper::dateExample('updates.cms.releaseDate'),
+                ],
+                'cms.isCritical' => 'Craft CMS update is critical (true/false)',
+                'plugins' => [
+                    'label' => 'Plugin updates (list of name, current, latest, releaseDate, isCritical)',
+                    'example' => "{% for plugin in updates.plugins %}{{ plugin.name }}: {{ plugin.current }} → {{ plugin.latest }}<br>{% endfor %}",
+                ],
+            ],
         ];
-
         $variables['level'] = [
             'type' => 'string',
-            'description' => 'The event level (newUpdates or newCriticalUpdates)'
+            'description' => 'Event level (newUpdates or newCriticalUpdates)',
+            'example' => '{{ level }}',
         ];
-
         return $variables;
     }
 

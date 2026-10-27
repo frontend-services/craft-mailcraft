@@ -60,15 +60,9 @@ class UserCreateEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['user'] = [
             'type' => 'User',
-            'description' => 'User model',
-            'fields' => [
-                'username' => 'Username',
-                'email' => 'Email address',
-                'firstName' => 'First name',
-                'lastName' => 'Last name',
-            ]
+            'description' => 'The user that was created',
+            'fields' => TemplateHelper::userFields(),
         ];
-
         return $variables;
     }
 

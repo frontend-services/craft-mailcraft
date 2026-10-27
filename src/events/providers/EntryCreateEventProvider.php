@@ -66,15 +66,9 @@ class EntryCreateEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['entry'] = [
             'type' => 'Entry',
-            'description' => 'Entry model',
-            'fields' => [
-                'title' => 'Entry title',
-                'url' => 'Entry URL',
-                'section' => 'Section name',
-                'type' => 'Entry type',
-            ]
+            'description' => 'The entry that was created',
+            'fields' => TemplateHelper::entryFields(),
         ];
-
         return $variables;
     }
 

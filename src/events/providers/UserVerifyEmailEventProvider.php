@@ -53,15 +53,9 @@ class UserVerifyEmailEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['user'] = [
             'type' => 'User',
-            'description' => 'User model',
-            'fields' => [
-                'username' => 'Username',
-                'email' => 'Email address',
-                'firstName' => 'First name',
-                'lastName' => 'Last name',
-            ],
+            'description' => 'The user that verified their email',
+            'fields' => TemplateHelper::userFields(),
         ];
-
         return $variables;
     }
 

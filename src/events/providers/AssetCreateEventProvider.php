@@ -59,16 +59,9 @@ class AssetCreateEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['asset'] = [
             'type' => 'Asset',
-            'description' => 'Asset model',
-            'fields' => [
-                'title' => 'Asset title',
-                'filename' => 'Asset filename',
-                'volume' => 'Volume name',
-                'kind' => 'File kind (image, document, etc.)',
-                'size' => 'File size in bytes',
-            ]
+            'description' => 'The asset that was uploaded',
+            'fields' => TemplateHelper::assetFields(),
         ];
-
         return $variables;
     }
 

@@ -58,24 +58,9 @@ class CommerceOrderCreatedEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['order'] = [
             'type' => 'Order',
-            'description' => 'Order model',
-            'fields' => [
-                'number' => 'Order number',
-                'reference' => 'Order reference',
-                'email' => 'Customer email',
-                'totalPrice' => 'Order total price',
-                'itemTotal' => 'Order item total',
-                'paymentCurrency' => 'Payment currency',
-                'dateOrdered' => 'Date ordered',
-                'dateCreated' => 'Date created',
-                'dateUpdated' => 'Date updated',
-                'customer' => 'Customer information',
-                'shippingAddress' => 'Shipping address',
-                'billingAddress' => 'Billing address',
-                'lineItems' => 'Order line items',
-            ]
+            'description' => 'The completed order',
+            'fields' => TemplateHelper::orderFields(),
         ];
-
         return $variables;
     }
 

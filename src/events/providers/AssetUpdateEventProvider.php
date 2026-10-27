@@ -145,24 +145,10 @@ class AssetUpdateEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['asset'] = [
             'type' => 'Asset',
-            'description' => 'Asset model',
-            'fields' => [
-                'title' => 'Asset title',
-                'filename' => 'Asset filename',
-                'volume' => 'Volume name',
-                'kind' => 'File kind (image, document, etc.)',
-                'size' => 'File size in bytes',
-            ]
+            'description' => 'The asset that was updated',
+            'fields' => TemplateHelper::assetFields(),
         ];
-        $variables['changedFields'] = [
-            'type' => 'array',
-            'description' => 'List of changed field labels',
-        ];
-        $variables['changedFieldsList'] = [
-            'type' => 'string',
-            'description' => 'Comma-separated list of changed field labels',
-        ];
-
+        $variables += TemplateHelper::changedFieldsVariables();
         return $variables;
     }
 

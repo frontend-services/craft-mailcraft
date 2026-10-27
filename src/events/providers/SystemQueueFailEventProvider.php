@@ -67,25 +67,25 @@ class SystemQueueFailEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['job'] = [
             'type' => 'object',
-            'description' => 'The failed job object',
+            'description' => 'The failed job',
             'fields' => [
                 'description' => 'Job description',
-            ]
+            ],
         ];
         $variables['error'] = [
             'type' => 'Exception',
             'description' => 'The error that occurred',
             'fields' => [
                 'message' => 'Error message',
-                'file' => 'File where error occurred',
-                'line' => 'Line number where error occurred',
-            ]
+                'file' => 'File where the error occurred',
+                'line' => 'Line number',
+            ],
         ];
         $variables['attempt'] = [
             'type' => 'integer',
-            'description' => 'The attempt number'
+            'description' => 'Attempt number',
+            'example' => '{{ attempt }}',
         ];
-
         return $variables;
     }
 

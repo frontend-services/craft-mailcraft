@@ -59,14 +59,9 @@ class EntryDeleteEventProvider extends AbstractEventProvider
         $variables = TemplateHelper::getGeneralVariables();
         $variables['entry'] = [
             'type' => 'Entry',
-            'description' => 'Entry model',
-            'fields' => [
-                'title' => 'Entry title',
-                'section' => 'Section name',
-                'type' => 'Entry type',
-            ]
+            'description' => 'The entry that was deleted',
+            'fields' => TemplateHelper::entryFields('entry', true),
         ];
-
         return $variables;
     }
 

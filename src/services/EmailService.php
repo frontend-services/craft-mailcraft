@@ -11,6 +11,7 @@ use craft\mail\Mailer;
 use craft\mail\Message;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\jobs\SendEmailJob;
 use frontendservices\mailcraft\MailCraft;
 use Twig\Error\LoaderError;
@@ -202,14 +203,14 @@ class EmailService extends Component
 
         $data = [];
         foreach ($provider->getTemplateVariables() as $key => $definition) {
-            // `now`, `siteName` and `siteUrl` are Twig globals in Craft, don't shadow them
-            if (in_array($key, ['now', 'siteName', 'siteUrl'], true)) {
+            // Craft Twig globals, don't shadow them
+            if (in_array($key, ['now', 'siteName', 'siteUrl', 'currentSite'], true)) {
                 continue;
             }
             $data[$key] = $this->sampleValue((string)$key, is_array($definition) ? $definition : []);
         }
 
-        return $data;
+        return array_merge($data, TemplateHelper::getRuntimeVariables());
     }
 
     private function sampleValue(string $key, array $definition): mixed
@@ -235,10 +236,22 @@ class EmailService extends Component
             return $element;
         }
 
+        if (array_key_exists('sample', $definition)) {
+            return $definition['sample'];
+        }
+
         if (!empty($definition['fields']) && is_array($definition['fields'])) {
             $sample = [];
-            foreach ($definition['fields'] as $field => $label) {
-                $sample[$field] = is_string($label) ? $label : (string)$field;
+            foreach ($definition['fields'] as $field => $fieldDefinition) {
+                $target = &$sample;
+                foreach (explode('.', (string)$field) as $part) {
+                    if (!isset($target[$part]) || !is_array($target[$part])) {
+                        $target[$part] = [];
+                    }
+                    $target = &$target[$part];
+                }
+                $target = $this->sampleFieldValue((string)$field, $fieldDefinition);
+                unset($target);
             }
             return $sample;
         }
@@ -246,7 +259,10 @@ class EmailService extends Component
         return match ($key) {
             'newStatus' => 'shipped',
             'oldStatus' => 'processing',
+            'newStatusName' => 'Shipped',
+            'oldStatusName' => 'Processing',
             'attempt' => 1,
+            'level' => 'newUpdates',
             'error' => 'Example error message',
             'changedFields' => ['Title'],
             'changedFieldsList' => 'Title',
@@ -255,7 +271,33 @@ class EmailService extends Component
     }
 
     /**
-     * Queue an email for sending
+     * Sample value for one declared field when no real element is available:
+     * dates for date-like fields, booleans for flags, numbers for totals, the label otherwise.
+     */
+    private function sampleFieldValue(string $field, mixed $definition): mixed
+    {
+        $label = TemplateHelper::fieldLabel($definition, $field);
+        $example = is_array($definition) ? (string)($definition['example'] ?? '') : '';
+        $leaf = substr($field, strrpos($field, '.') !== false ? strrpos($field, '.') + 1 : 0);
+
+        if (preg_match('/date/i', $leaf) || str_contains($example, '|date')) {
+            return new \DateTime();
+        }
+        if (preg_match('/^(is|has)[A-Z]/', $leaf) || in_array($leaf, ['admin', 'enabled'], true)) {
+            return true;
+        }
+        if (preg_match('/^(total|count|width|height|attempt|line)/i', $leaf) || preg_match('/(Total|Price|Cost|Tax|Discount|Paid)$/', $leaf)) {
+            return 1;
+        }
+        if (str_contains($example, '|filesize')) {
+            return 1024;
+        }
+
+        return $label;
+    }
+
+    /**
+     * Queue an email
      */
     private function queueEmail(EmailTemplate $template, array $variables = [], int $delay = self::QUEUE_DELAY): void
     {
@@ -334,6 +376,8 @@ class EmailService extends Component
             Craft::error('Error loading email templates for event ' . $provider->getEventId() . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString(), __METHOD__);
             return;
         }
+
+        $variables += TemplateHelper::getRuntimeVariables();
 
         // Each template is isolated: a failure in one must not stop the others from sending.
         foreach ($templates as $template) {
