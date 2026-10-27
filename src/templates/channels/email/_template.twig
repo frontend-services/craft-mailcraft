@@ -1,0 +1,84 @@
+{% import "_includes/forms" as forms %}
+{% set showMoreRecipientOptions = pluginSettings.showCcBcc or emailTemplate.cc or emailTemplate.bcc or emailTemplate.replyTo %}
+
+{% set toInput %}
+    {{ forms.text({
+        id: 'to',
+        name: 'to',
+        value: emailTemplate.to,
+        class: 'code',
+        placeholder: 'name@example.com',
+    }) }}
+    <div class="flex mailcraft-quick-picks hidden" id="mailcraft-to-picks">
+        <span class="light">{{ 'Quick pick:'|t('mailcraft') }}</span>
+    </div>
+{% endset %}
+{{ forms.field({
+    label: "To"|t('mailcraft'),
+    instructions: "One or more addresses, separated by commas. Variables are allowed."|t('mailcraft'),
+    id: 'to',
+    errors: emailTemplate.getErrors('to'),
+    required: true,
+}, toInput) }}
+
+{{ forms.textField({
+    label: "To name"|t('mailcraft'),
+    instructions: "Optional. For several recipients, separate names with commas in the same order."|t('mailcraft'),
+    id: 'toName',
+    name: 'toName',
+    value: emailTemplate.toName,
+    class: 'code',
+    errors: emailTemplate.getErrors('toName'),
+}) }}
+
+{{ forms.textField({
+    label: "From"|t('mailcraft'),
+    instructions: "Leave empty to use the system address."|t('mailcraft'),
+    id: 'from',
+    name: 'from',
+    value: emailTemplate.from,
+    placeholder: mailDefaults.fromEmail ? "#{mailDefaults.fromEmail} (#{'system default'|t('mailcraft')})" : 'system default'|t('mailcraft'),
+    errors: emailTemplate.getErrors('from'),
+    fieldClass: 'width-50',
+}) }}
+
+{{ forms.textField({
+    label: "From name"|t('mailcraft'),
+    instructions: "Leave empty to use the system name."|t('mailcraft'),
+    id: 'fromName',
+    name: 'fromName',
+    value: emailTemplate.fromName,
+    placeholder: mailDefaults.fromName ? "#{mailDefaults.fromName} (#{'system default'|t('mailcraft')})" : 'system default'|t('mailcraft'),
+    errors: emailTemplate.getErrors('fromName'),
+    fieldClass: 'width-50',
+}) }}
+
+<div class="field">
+    <a class="fieldtoggle{{ showMoreRecipientOptions ? ' expanded' }}" data-target="mailcraft-more-recipients" role="button" tabindex="0" aria-expanded="{{ showMoreRecipientOptions ? 'true' : 'false' }}">{{ 'More options: CC, BCC, Reply-To'|t('mailcraft') }}</a>
+    <div id="mailcraft-more-recipients" class="mailcraft-disclosure flex-fields{{ not showMoreRecipientOptions ? ' hidden' }}">
+        {{ forms.textField({
+            label: "CC"|t('mailcraft'),
+            id: 'cc',
+            name: 'cc',
+            value: emailTemplate.cc,
+            errors: emailTemplate.getErrors('cc'),
+            fieldClass: 'width-50',
+        }) }}
+        {{ forms.textField({
+            label: "BCC"|t('mailcraft'),
+            id: 'bcc',
+            name: 'bcc',
+            value: emailTemplate.bcc,
+            errors: emailTemplate.getErrors('bcc'),
+            fieldClass: 'width-50',
+        }) }}
+        {{ forms.textField({
+            label: "Reply-To"|t('mailcraft'),
+            id: 'replyTo',
+            name: 'replyTo',
+            value: emailTemplate.replyTo,
+            errors: emailTemplate.getErrors('replyTo'),
+            fieldClass: 'width-50',
+        }) }}
+    </div>
+</div>

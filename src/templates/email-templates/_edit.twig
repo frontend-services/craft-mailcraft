@@ -16,7 +16,8 @@
     'Choose an event to see its variables.',
     'Replace the current title, subject and email body with the example for this event?',
     'Example loaded. Review the content and save when you are happy with it.',
-    'Test email sent to {email}.',
+    'Test sent via {channels}.',
+    'None',
     'The test email could not be sent.',
     'Instantly',
     'No event chosen',
@@ -49,13 +50,21 @@
 {% set contentHasErrors = emailTemplate.hasErrors('title') or emailTemplate.hasErrors('subject') or emailTemplate.hasErrors('template') %}
 {% set triggerHasErrors = emailTemplate.hasErrors('event') or emailTemplate.hasErrors('delay') or emailTemplate.hasErrors('conditions') or emailTemplate.hasErrors('condition1') or emailTemplate.hasErrors('condition2') %}
 {% set recipientsHaveErrors = emailTemplate.hasErrors('to') or emailTemplate.hasErrors('toName') or emailTemplate.hasErrors('from') or emailTemplate.hasErrors('fromName') or emailTemplate.hasErrors('cc') or emailTemplate.hasErrors('bcc') or emailTemplate.hasErrors('replyTo') %}
-{% set showMoreRecipientOptions = pluginSettings.showCcBcc or emailTemplate.cc or emailTemplate.bcc or emailTemplate.replyTo %}
 
 {% set tabs = {
     'tab-content': { label: 'Content'|t('mailcraft'), url: '#tab-content', class: contentHasErrors ? 'error' : '' },
     'tab-trigger': { label: 'Trigger'|t('mailcraft'), url: '#tab-trigger', class: triggerHasErrors ? 'error' : '' },
-    'tab-recipients': { label: 'Recipients'|t('mailcraft'), url: '#tab-recipients', class: recipientsHaveErrors ? 'error' : '' },
 } %}
+
+{% set enabledChannels = emailTemplate.getEnabledChannels() %}
+{% for handle, channel in channels %}
+    {% set channelErrorKeys = emailTemplate.getErrors()|keys|filter(k => k starts with "channels.#{handle}.") %}
+    {% set channelHasErrors = channelErrorKeys|length > 0 or (handle == 'email' and recipientsHaveErrors) %}
+    {% set tabClasses = [channelHasErrors ? 'error' : null, emailTemplate.isChannelEnabled(handle) ? 'mailcraft-channel-on' : null]|filter(c => c) %}
+    {% set tabs = tabs|merge({ ("tab-channel-#{handle}"): { label: channel.getName(), url: "#tab-channel-#{handle}", class: tabClasses|join(' ') } }) %}
+{% endfor %}
+{% set testChannels = enabledChannels|filter(c => c.supportsTestSend())|map(c => c.getName()) %}
+{% set anyTestChannel = channels|filter(c => c.supportsTestSend())|length > 0 %}
 
 {% set formActions = [
     {
@@ -225,90 +234,20 @@
         </div>
     </div>
 
-    {# --- Recipients --- #}
-    <div id="tab-recipients" class="flex-fields hidden">
-        {% set toInput %}
-            {{ forms.text({
-                id: 'to',
-                name: 'to',
-                value: emailTemplate.to,
-                class: 'code',
-                placeholder: 'name@example.com',
+    {# --- One tab per channel --- #}
+    {% for handle, channel in channels %}
+        <div id="tab-channel-{{ handle }}" class="flex-fields hidden mailcraft-channel{{ not emailTemplate.isChannelEnabled(handle) ? ' mailcraft-channel--off' }}" data-channel="{{ handle }}" data-channel-name="{{ channel.getName() }}">
+            {{ forms.lightswitchField({
+                label: "Send via {channel}"|t('mailcraft', { channel: channel.getName() }),
+                id: "channels-#{handle}-enabled",
+                name: "channels[#{handle}][enabled]",
+                on: emailTemplate.isChannelEnabled(handle),
+                fieldClass: 'mailcraft-channel-switch',
             }) }}
-            <div class="flex mailcraft-quick-picks hidden" id="mailcraft-to-picks">
-                <span class="light">{{ 'Quick pick:'|t('mailcraft') }}</span>
-            </div>
-        {% endset %}
-        {{ forms.field({
-            label: "To"|t('mailcraft'),
-            instructions: "One or more addresses, separated by commas. Variables are allowed."|t('mailcraft'),
-            id: 'to',
-            errors: emailTemplate.getErrors('to'),
-            required: true,
-        }, toInput) }}
-
-        {{ forms.textField({
-            label: "To name"|t('mailcraft'),
-            instructions: "Optional. For several recipients, separate names with commas in the same order."|t('mailcraft'),
-            id: 'toName',
-            name: 'toName',
-            value: emailTemplate.toName,
-            class: 'code',
-            errors: emailTemplate.getErrors('toName'),
-        }) }}
-
-        {{ forms.textField({
-            label: "From"|t('mailcraft'),
-            instructions: "Leave empty to use the system address."|t('mailcraft'),
-            id: 'from',
-            name: 'from',
-            value: emailTemplate.from,
-            placeholder: mailDefaults.fromEmail ? "#{mailDefaults.fromEmail} (#{'system default'|t('mailcraft')})" : 'system default'|t('mailcraft'),
-            errors: emailTemplate.getErrors('from'),
-            fieldClass: 'width-50',
-        }) }}
-
-        {{ forms.textField({
-            label: "From name"|t('mailcraft'),
-            instructions: "Leave empty to use the system name."|t('mailcraft'),
-            id: 'fromName',
-            name: 'fromName',
-            value: emailTemplate.fromName,
-            placeholder: mailDefaults.fromName ? "#{mailDefaults.fromName} (#{'system default'|t('mailcraft')})" : 'system default'|t('mailcraft'),
-            errors: emailTemplate.getErrors('fromName'),
-            fieldClass: 'width-50',
-        }) }}
-
-        <div class="field">
-            <a class="fieldtoggle{{ showMoreRecipientOptions ? ' expanded' }}" data-target="mailcraft-more-recipients" role="button" tabindex="0" aria-expanded="{{ showMoreRecipientOptions ? 'true' : 'false' }}">{{ 'More options: CC, BCC, Reply-To'|t('mailcraft') }}</a>
-            <div id="mailcraft-more-recipients" class="mailcraft-disclosure flex-fields{{ not showMoreRecipientOptions ? ' hidden' }}">
-                {{ forms.textField({
-                    label: "CC"|t('mailcraft'),
-                    id: 'cc',
-                    name: 'cc',
-                    value: emailTemplate.cc,
-                    errors: emailTemplate.getErrors('cc'),
-                    fieldClass: 'width-50',
-                }) }}
-                {{ forms.textField({
-                    label: "BCC"|t('mailcraft'),
-                    id: 'bcc',
-                    name: 'bcc',
-                    value: emailTemplate.bcc,
-                    errors: emailTemplate.getErrors('bcc'),
-                    fieldClass: 'width-50',
-                }) }}
-                {{ forms.textField({
-                    label: "Reply-To"|t('mailcraft'),
-                    id: 'replyTo',
-                    name: 'replyTo',
-                    value: emailTemplate.replyTo,
-                    errors: emailTemplate.getErrors('replyTo'),
-                    fieldClass: 'width-50',
-                }) }}
-            </div>
+            {# Channel fields are direct children of the tab: nesting another .flex-fields makes Craft draw them as nested fields. #}
+            {{ channel.getTemplateSettingsHtml(emailTemplate)|raw }}
         </div>
-    </div>
+    {% endfor %}
 {% endblock %}
 
 {% block details %}
@@ -335,24 +274,42 @@
             <div class="value" id="mailcraft-summary-delay"></div>
         </div>
         <div class="data">
-            <h5 class="heading">{{ 'To'|t('mailcraft') }}</h5>
-            <div class="value"><code id="mailcraft-summary-to">{{ emailTemplate.to }}</code></div>
+            <h5 class="heading">{{ 'Channels'|t('mailcraft') }}</h5>
+            <div class="value" id="mailcraft-summary-channels">{{ enabledChannels|map(c => c.getName())|join(', ') ?: 'None'|t('mailcraft') }}</div>
         </div>
-        <div class="data">
-            <h5 class="heading">{{ 'From'|t('mailcraft') }}</h5>
-            <div class="value" id="mailcraft-summary-from">{{ emailTemplate.from ?: 'System default'|t('mailcraft') }}</div>
-        </div>
+        {% for handle, channel in channels %}
+            {% if handle == 'email' %}
+                <div class="data{{ not emailTemplate.isChannelEnabled('email') ? ' hidden' }}" data-channel-summary="email">
+                    <h5 class="heading">{{ 'To'|t('mailcraft') }}</h5>
+                    <div class="value"><code id="mailcraft-summary-to">{{ emailTemplate.to }}</code></div>
+                </div>
+                <div class="data{{ not emailTemplate.isChannelEnabled('email') ? ' hidden' }}" data-channel-summary="email">
+                    <h5 class="heading">{{ 'From'|t('mailcraft') }}</h5>
+                    <div class="value" id="mailcraft-summary-from">{{ emailTemplate.from ?: 'System default'|t('mailcraft') }}</div>
+                </div>
+            {% else %}
+                {% for label, value in channel.getTemplateSummary(emailTemplate) %}
+                    <div class="data{{ not emailTemplate.isChannelEnabled(handle) ? ' hidden' }}" data-channel-summary="{{ handle }}">
+                        <h5 class="heading">{{ label }}</h5>
+                        <div class="value">{{ value }}</div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endfor %}
     </div>
+    <p class="warning with-icon mailcraft-no-channel-warning{{ enabledChannels|length ? ' hidden' }}" id="mailcraft-no-channel-warning">{{ 'Nothing will be sent: no channel is enabled.'|t('mailcraft') }}</p>
 
+    {% if anyTestChannel %}
     <div class="meta">
         <div class="field" id="mailcraft-send-test-field">
             <div class="heading"><label for="mailcraft-send-test">{{ 'Test'|t('mailcraft') }}</label></div>
             <div class="input ltr">
                 <button type="button" id="mailcraft-send-test" class="btn small">{{ 'Send a test to me'|t('mailcraft') }}</button>
-                <div class="smalltext light mailcraft-send-test__hint">{{ 'Uses sample data and goes to {email}.'|t('mailcraft', { email: currentUser.email }) }}</div>
+                <div class="smalltext light mailcraft-send-test__hint">{{ 'Uses sample data and goes to {email} by email.'|t('mailcraft', { email: currentUser.email }) }}</div>
             </div>
         </div>
     </div>
+    {% endif %}
 
     {% if emailTemplate.id %}
         <div class="meta read-only">

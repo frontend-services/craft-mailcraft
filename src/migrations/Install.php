@@ -56,6 +56,7 @@ class Install extends Migration
             'conditions' => $this->text(),
             'condition1' => $this->text(),
             'condition2' => $this->text(),
+            'channels' => $this->text(),
             'to' => $this->string(),
             'toName' => $this->string(),
             'cc' => $this->string(),

@@ -22,6 +22,7 @@ use craft\db\ActiveRecord;
  * @property string|null $conditions
  * @property string|null $condition1
  * @property string|null $condition2
+ * @property string|null $channels JSON, `handle => {enabled: bool, ...}`
  */
 class EmailTemplateRecord extends ActiveRecord
 {

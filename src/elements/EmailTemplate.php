@@ -6,8 +6,12 @@ use Craft;
 use craft\base\Element;
 use craft\elements\db\ElementQueryInterface;
 use craft\elements\User;
+use craft\helpers\Html;
+use craft\helpers\Json;
 use craft\helpers\UrlHelper;
+use frontendservices\mailcraft\base\AbstractChannel;
 use frontendservices\mailcraft\elements\db\EmailTemplateQuery;
+use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\records\EmailTemplateRecord;
 use yii\base\InvalidConfigException;
 use yii\db\Exception;
@@ -31,6 +35,89 @@ class EmailTemplate extends Element
     public ?string $conditions = null;
     public ?string $condition1 = null;
     public ?string $condition2 = null;
+
+    /**
+     * @var array Delivery channels, `handle => ['enabled' => bool, ...channel settings]`.
+     */
+    public array $channels = [];
+
+    /**
+     * What a template from old plugin versions is treated as (pre 1.4.0).
+     */
+    public const LEGACY_CHANNELS = ['email' => ['enabled' => true]];
+
+    /**
+     * @inheritdoc
+     */
+    public function init(): void
+    {
+        parent::init();
+
+        if ($this->channels === []) {
+            $allowed = MailCraft::getInstance()->getSettings()->allowedChannels;
+            $this->channels = ['email' => ['enabled' => in_array('email', $allowed, true) || in_array('*', $allowed, true)]];
+        } else {
+            $this->channels = self::normalizeChannels($this->channels);
+        }
+    }
+
+    /**
+     * Turns a stored `channels` value (JSON string or array) into the canonical shape.
+     */
+    public static function normalizeChannels(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = trim($value) === '' ? null : Json::decodeIfJson($value);
+        }
+
+        if (!is_array($value) || $value === []) {
+            return self::LEGACY_CHANNELS;
+        }
+
+        $normalized = [];
+        foreach ($value as $handle => $settings) {
+            if (!is_string($handle) || $handle === '') {
+                continue;
+            }
+            if (!is_array($settings)) {
+                $settings = [];
+            }
+            $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $normalized[$handle] = $settings;
+        }
+
+        return $normalized === [] ? self::LEGACY_CHANNELS : $normalized;
+    }
+
+    public function isChannelEnabled(string $handle): bool
+    {
+        return !empty($this->channels[$handle]['enabled']);
+    }
+
+    /**
+     * The channel's per-template settings, without the `enabled` flag.
+     */
+    public function getChannelSettings(string $handle): array
+    {
+        $settings = $this->channels[$handle] ?? [];
+        unset($settings['enabled']);
+
+        return $settings;
+    }
+
+    /**
+     * Get enabled channels
+     *
+     * @return AbstractChannel[]
+     */
+    public function getEnabledChannels(): array
+    {
+        return array_filter(
+            MailCraft::getInstance()->channelRegistry->getAllowedChannels(),
+            fn(string $handle) => $this->isChannelEnabled($handle),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
 
     /**
      * @inheritdoc
@@ -126,13 +213,26 @@ class EmailTemplate extends Element
     {
         $rules = parent::defineRules();
 
-        $rules[] = [['title', 'subject', 'to', 'event', 'template'], 'required'];
+        $rules[] = [['title', 'subject', 'event', 'template'], 'required'];
+        $rules[] = ['to', 'required', 'when' => fn(EmailTemplate $model) => $model->isChannelEnabled('email')
+            && array_key_exists('email', MailCraft::getInstance()->channelRegistry->getAllowedChannels())];
         $rules[] = [['title', 'subject'], 'string', 'max' => 255];
         $rules[] = ['delay', 'integer', 'min' => 0];
         $rules[] = ['event', 'in', 'range' => Craft::$app->getModule('mailcraft')->get('eventRegistry')->getAvailableEventsList()];
         $rules[] = ['conditions', 'string'];
+        $rules[] = ['channels', 'validateChannels'];
 
         return $rules;
+    }
+
+    /**
+     * Lets every enabled, allowed channel validate its own per-template settings.
+     */
+    public function validateChannels(): void
+    {
+        foreach ($this->getEnabledChannels() as $channel) {
+            $channel->validateTemplateSettings($this);
+        }
     }
 
     /**
@@ -166,6 +266,7 @@ class EmailTemplate extends Element
         $record->conditions = $this->conditions;
         $record->condition1 = $this->condition1;
         $record->condition2 = $this->condition2;
+        $record->channels = Json::encode($this->channels);
 
         $record->save(false);
 
@@ -204,9 +305,44 @@ class EmailTemplate extends Element
             'subject' => ['label' => Craft::t('mailcraft', 'Subject')],
             'event' => ['label' => Craft::t('mailcraft', 'Event')],
             'to' => ['label' => Craft::t('mailcraft', 'To')],
+            'channels' => ['label' => Craft::t('mailcraft', 'Channels')],
             'dateCreated' => ['label' => Craft::t('mailcraft', 'Date Created')],
             'dateUpdated' => ['label' => Craft::t('mailcraft', 'Date Updated')],
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    protected function attributeHtml(string $attribute): string
+    {
+        // Craft 5
+        if ($attribute === 'channels') {
+            return $this->channelsHtml();
+        }
+
+        return parent::attributeHtml($attribute);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    protected function tableAttributeHtml(string $attribute): string
+    {
+        // Craft 4
+        if ($attribute === 'channels') {
+            return $this->channelsHtml();
+        }
+
+        return parent::tableAttributeHtml($attribute);
+    }
+
+    private function channelsHtml(): string
+    {
+        return Html::encode(implode(', ', array_map(
+            static fn(AbstractChannel $channel) => $channel->getName(),
+            $this->getEnabledChannels()
+        )));
     }
 
     /**

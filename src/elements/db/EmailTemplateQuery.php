@@ -2,7 +2,9 @@
 
 namespace frontendservices\mailcraft\elements\db;
 
+use craft\base\ElementInterface;
 use craft\elements\db\ElementQuery;
+use frontendservices\mailcraft\elements\EmailTemplate;
 
 class EmailTemplateQuery extends ElementQuery
 {
@@ -47,6 +49,7 @@ class EmailTemplateQuery extends ElementQuery
             'mailcraft_emailtemplates.conditions',
             'mailcraft_emailtemplates.condition1',
             'mailcraft_emailtemplates.condition2',
+            'mailcraft_emailtemplates.channels',
         ]);
 
         if ($this->event) {
@@ -62,5 +65,15 @@ class EmailTemplateQuery extends ElementQuery
         }
 
         return parent::beforePrepare();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function createElement(array $row): ElementInterface
+    {
+        $row['channels'] = EmailTemplate::normalizeChannels($row['channels'] ?? null);
+
+        return parent::createElement($row);
     }
 }

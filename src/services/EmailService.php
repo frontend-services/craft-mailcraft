@@ -7,8 +7,6 @@ use craft\base\Component;
 use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\elements\User;
-use craft\mail\Mailer;
-use craft\mail\Message;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\helpers\TemplateHelper;
@@ -23,11 +21,6 @@ use yii\base\InvalidConfigException;
  */
 class EmailService extends Component
 {
-    /**
-     * Queue job delay (in seconds)
-     */
-    private const QUEUE_DELAY = 0;
-
     /**
      * The reason the most recent sendEmail() call failed, if known.
      */
@@ -48,52 +41,25 @@ class EmailService extends Component
     }
 
     /**
-     * Send an email using a template
+     * Send an email using a template.
+     *
+     * Kept for backward compatibility; delivery now lives in {@see \frontendservices\mailcraft\channels\EmailChannel::deliver()}.
      */
     public function sendEmail(array $variables = []): bool
     {
         $this->lastError = null;
 
-        try {
-            $message = new Message();
-
-            // Set basic email properties
-            $message->setCharset('utf-8');
-            $message->setSubject($variables['subject']);
-            if ($variables['toName']) {
-                $message->setTo([$variables['to'] => $variables['toName']]);
-            } else {
-                $message->setTo($variables['to']);
-            }
-            $message->setCc($variables['cc']);
-            $message->setBcc($variables['bcc']);
-            if ($variables['from']) {
-                if ($variables['fromName']) {
-                    $message->setFrom([$variables['from'] => $variables['fromName']]);
-                } else {
-                    $message->setFrom($variables['from']);
-                }
-            }
-            $message->setReplyTo($variables['replyTo']);
-            $message->setHtmlBody($variables['message']);
-
-            $logger = Craft::getLogger();
-            $logIndex = count($logger->messages);
-
-            if (Craft::$app->mailer->send($message)) {
-                return true;
-            }
-
-            $this->lastError = $this->findMailerError($logger->messages, $logIndex)
-                ?? 'The mailer returned false without an error message.';
+        $channel = MailCraft::getInstance()->channelRegistry->getChannel('email');
+        if ($channel === null) {
+            $this->lastError = 'The email channel is not registered.';
             Craft::error('Error sending email: ' . $this->lastError, __METHOD__);
-
-            return false;
-        } catch (\Throwable $e) {
-            $this->lastError = $e->getMessage();
-            Craft::error('Error sending email: ' . $e->getMessage(), __METHOD__);
             return false;
         }
+
+        $result = $channel->deliver($variables);
+        $this->lastError = $channel->getLastError();
+
+        return $result;
     }
 
     /**
@@ -105,36 +71,10 @@ class EmailService extends Component
     }
 
     /**
-     * Finds the most recent message logged by Craft's mailer.
-     *
-     * @param array $messages Yii logger message buffer (`[text, level, category, time, traces, memory]`)
-     * @param int $fromIndex Only look at messages logged from this index onwards
-     */
-    private function findMailerError(array $messages, int $fromIndex): ?string
-    {
-        // Keys can be strings when Yii profiling is on, so walk by position. If the buffer
-        // shrank, the logger flushed during send(); scan everything that is left.
-        $keys = array_keys($messages);
-        $start = count($keys) >= $fromIndex ? $fromIndex : 0;
-
-        for ($i = count($keys) - 1; $i >= $start; $i--) {
-            $entry = $messages[$keys[$i]];
-            $text = $entry[0] ?? null;
-            $category = $entry[2] ?? null;
-
-            if ($category === Mailer::class . '::send' && is_string($text)) {
-                return preg_replace('/^Error sending email: /', '', $text);
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Renders every address and text field of a template against the given variables.
      *
      * Returns the array shape sendEmail() expects. `to` and `toName` are rendered but
-     * not split into individual recipients; queueEmail() does that.
+     * not split into individual recipients; EmailChannel::buildDeliveries() does that.
      */
     public function buildEmailVariables(EmailTemplate $template, array $variables = []): array
     {
@@ -164,6 +104,30 @@ class EmailService extends Component
         $variables['subject'] = '[' . Craft::t('mailcraft', 'Test') . '] ' . ($variables['subject'] ?? '');
 
         return $this->sendEmail($variables);
+    }
+
+    /**
+     * Sends a test through every channel enabled on the template that supports test sending.
+     *
+     * @return array{sent: string[], errors: string[]} Channel names that sent, and "<name>: <reason>" for failures
+     */
+    public function sendTestToUser(EmailTemplate $template, User $user): array
+    {
+        $result = ['sent' => [], 'errors' => []];
+
+        foreach ($template->getEnabledChannels() as $channel) {
+            if (!$channel->supportsTestSend()) {
+                continue;
+            }
+
+            if ($channel->sendTest($template, $user)) {
+                $result['sent'][] = $channel->getName();
+            } else {
+                $result['errors'][] = $channel->getName() . ': ' . ($channel->getLastError() ?? 'unknown error');
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -297,51 +261,64 @@ class EmailService extends Component
     }
 
     /**
-     * Renders a template and hands one email per recipient to the queue.
+     * Renders a template once and hands it to every channel that is enabled on the template
+     * and allowed in the plugin settings, one queue job per delivery payload.
+     *
+     * @param int $delay Seconds to wait before sending; 0 sends as soon as the queue runs
      */
-    private function queueEmail(EmailTemplate $template, array $variables = [], int $delay = self::QUEUE_DELAY): void
+    public function dispatch(EmailTemplate $template, array $variables = [], int $delay = 0): void
     {
-        $emailVariables = $this->buildEmailVariables($template, $variables);
-        $renderedTo = $emailVariables['to'];
-        $renderedToName = $emailVariables['toName'];
-        unset($emailVariables['to'], $emailVariables['toName']);
+        $content = [
+            'subject' => (string)$this->renderString($template->subject, $variables),
+            'body' => (string)$this->renderString($template->template, $variables),
+        ];
+
+        $channels = $template->getEnabledChannels();
+
+        $wanted = array_keys(array_filter($template->channels, static fn($c) => !empty($c['enabled'])));
+        foreach (array_diff($wanted, array_keys($channels)) as $handle) {
+            Craft::warning(sprintf(
+                'MailCraft: channel "%s" is enabled on template "%s" (#%s) but not allowed in the plugin settings; skipped.',
+                $handle,
+                $template->title,
+                $template->id
+            ), __METHOD__);
+        }
+
+        if ($channels === []) {
+            Craft::warning(sprintf(
+                'MailCraft: template "%s" (#%s) has no enabled channel; nothing sent.',
+                $template->title,
+                $template->id
+            ), __METHOD__);
+            return;
+        }
 
         $sendDirectly = $delay <= 0 && MailCraft::getInstance()->getSettings()->sendInstantEmailsDirectly;
         $sendTime = time() + $delay;
 
-        $emails = array_map(
-            'trim',
-            explode(',', (string)$renderedTo),
-        );
+        foreach ($channels as $channel) {
+            foreach ($channel->buildDeliveries($template, $content, $variables) as $payload) {
+                if ($sendDirectly) {
+                    if ($channel->deliver($payload)) {
+                        continue;
+                    }
 
-        $names = [];
-        if (count($emails) > 1) {
-            $names = explode(',', (string)$renderedToName);
-        } else {
-            $names[] = $renderedToName;
-        }
-
-        foreach ($emails as $index => $email) {
-            $emailVariables['to'] = $email;
-            $emailVariables['toName'] = $names[$index] ?? null;
-
-            if ($sendDirectly) {
-                if ($this->sendEmail($emailVariables)) {
-                    continue;
+                    Craft::warning(sprintf(
+                        'Direct send of "%s" via %s to %s failed (%s); queueing it instead.',
+                        $content['subject'],
+                        $channel->getName(),
+                        $payload['to'] ?? '',
+                        $channel->getLastError() ?? 'unknown error'
+                    ), __METHOD__);
                 }
 
-                Craft::warning(sprintf(
-                    'Direct send of "%s" to %s failed (%s); queueing it instead.',
-                    $emailVariables['subject'],
-                    $email,
-                    $this->lastError ?? 'unknown error'
-                ), __METHOD__);
+                Craft::$app->queue->delay($delay)->push(new SendEmailJob([
+                    'channel' => $channel->getHandle(),
+                    'payload' => $payload,
+                    'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $content['subject'],
+                ]));
             }
-
-            Craft::$app->queue->delay($delay)->push(new SendEmailJob([
-                'variables' => $emailVariables,
-                'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $emailVariables['subject'],
-            ]));
         }
     }
 
@@ -400,7 +377,7 @@ class EmailService extends Component
                     continue;
                 }
 
-                $this->queueEmail($template, $variables, $template->delay ?: self::QUEUE_DELAY);
+                $this->dispatch($template, $variables, $template->delay ?: 0);
             } catch (\Throwable $e) {
                 Craft::error(sprintf(
                     'Error handling email template "%s" (#%s) for event %s: %s%s%s',

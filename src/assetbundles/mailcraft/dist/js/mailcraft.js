@@ -52,6 +52,7 @@
             this.initPreview();
             this.initSendTest();
             this.initSummaryBindings();
+            this.initChannels();
 
             // Selectize is initialised by Craft on DOM ready; wait for it before wiring events.
             this.whenReady(
@@ -73,7 +74,7 @@
             }
         },
 
-        // ───────────── Event + conditions ─────────────
+        // --- Event + conditions ---
 
         initEvent: function () {
             var eventSelect = this.$event[0].selectize;
@@ -205,7 +206,7 @@
             $('#mailcraft-load-example').prop('disabled', !(event && this.settings.examples[event]));
         },
 
-        // ───────────── Delay ─────────────
+        // --- Delay ---
 
         initDelay: function () {
             var self = this;
@@ -266,7 +267,7 @@
             $('#mailcraft-summary-delay').text(this.describeDelay(parseInt(this.$delay.val(), 10) || 0));
         },
 
-        // ───────────── Variables panel ─────────────
+        // --- Variables panel ---
 
         renderVariables: function (event) {
             var $list = $('#mailcraft-vars-list').empty();
@@ -325,7 +326,7 @@
             }
         },
 
-        // ───────────── Quick picks for "To" ─────────────
+        // --- Quick picks for "To" ---
 
         initQuickPicks: function () {
             var self = this;
@@ -365,7 +366,7 @@
             $picks.toggleClass('hidden', picks.length === 0);
         },
 
-        // ───────────── Example loading ─────────────
+        // --- Example loading ---
 
         initExampleButton: function () {
             this.addListener($('#mailcraft-load-example'), 'click', 'loadExample');
@@ -420,7 +421,7 @@
             }
         },
 
-        // ───────────── Form data for preview / test ─────────────
+        // --- Form data for preview / test ---
 
         collectFormData: function () {
             var editor = this.getCkeditor();
@@ -428,10 +429,17 @@
                 editor.updateSourceElement();
             }
 
-            var data = {};
+            var data = { channels: {} };
             var skip = { action: true, redirect: true };
+            var channelKey = /^channels\[([^\]]+)\]\[([^\]]+)\]$/;
             this.$form.serializeArray().forEach(function (pair) {
                 if (skip[pair.name] || pair.name === Craft.csrfTokenName) {
+                    return;
+                }
+                var match = channelKey.exec(pair.name);
+                if (match) {
+                    data.channels[match[1]] = data.channels[match[1]] || {};
+                    data.channels[match[1]][match[2]] = pair.value;
                     return;
                 }
                 data[pair.name] = pair.value;
@@ -440,7 +448,7 @@
             return data;
         },
 
-        // ───────────── Preview ─────────────
+        // --- Preview ---
 
         initPreview: function () {
             this.addListener($('#mailcraft-preview-btn'), 'click', 'showPreview');
@@ -471,8 +479,6 @@
         openPreviewModal: function (subject, html) {
             if (!this.previewModal) {
                 var $container = $('<div class="modal mailcraft-preview-modal"/>');
-                // Garnish fades the modal in with Velocity, which writes an inline `display: block` on the container
-                // and would cancel a flex layout set on it. The flex column therefore lives on an inner wrapper.
                 var $inner = $('<div class="mailcraft-preview__inner"/>').appendTo($container);
                 var $head = $('<div class="mailcraft-preview__head"/>').appendTo($inner);
                 $('<h2 class="mailcraft-preview__subject"/>').appendTo($head);
@@ -488,7 +494,7 @@
             this.previewModal.show();
         },
 
-        // ───────────── Send test ─────────────
+        // --- Send test ---
 
         initSendTest: function () {
             this.addListener($('#mailcraft-send-test'), 'click', 'sendTest');
@@ -505,9 +511,10 @@
                 .then(function (response) {
                     var data = response.data || {};
                     if (data.success) {
-                        Craft.cp.displayNotice(Craft.t('mailcraft', 'Test email sent to {email}.', { email: data.to }));
-                    } else {
-                        Craft.cp.displayError(data.error || Craft.t('mailcraft', 'The test email could not be sent.'));
+                        Craft.cp.displayNotice(Craft.t('mailcraft', 'Test sent via {channels}.', { channels: (data.sent || []).join(', ') }));
+                    }
+                    if (!data.success || (data.errors && data.errors.length)) {
+                        Craft.cp.displayError(data.error || (data.errors || []).join('\n') || Craft.t('mailcraft', 'The test email could not be sent.'));
                     }
                 })
                 .catch(function (error) {
@@ -519,7 +526,52 @@
                 });
         },
 
-        // ───────────── Sidebar summary ─────────────
+        // --- Delivery channels ---
+
+        initChannels: function () {
+            var self = this;
+            $('.mailcraft-channel').each(function () {
+                var $tab = $(this);
+                var $switch = $tab.find('.mailcraft-channel-switch .lightswitch');
+                $switch.on('change', function () {
+                    self.onChannelToggle($tab, $switch);
+                });
+            });
+        },
+
+        isSwitchOn: function ($switch) {
+            var lightswitch = $switch.data('lightswitch');
+            if (lightswitch) {
+                return !!lightswitch.on;
+            }
+            return $switch.find('input').val() !== '';
+        },
+
+        onChannelToggle: function ($tab, $switch) {
+            var handle = $tab.data('channel');
+            var on = this.isSwitchOn($switch);
+
+            $('#tabs a[href="#tab-channel-' + handle + '"]').toggleClass('mailcraft-channel-on', on);
+            $tab.toggleClass('mailcraft-channel--off', !on);
+            $('[data-channel-summary="' + handle + '"]').toggleClass('hidden', !on);
+
+            this.updateChannelSummary();
+        },
+
+        updateChannelSummary: function () {
+            var self = this;
+            var names = [];
+            $('.mailcraft-channel').each(function () {
+                var $tab = $(this);
+                if (self.isSwitchOn($tab.find('.mailcraft-channel-switch .lightswitch'))) {
+                    names.push($tab.data('channel-name'));
+                }
+            });
+            $('#mailcraft-summary-channels').text(names.length ? names.join(', ') : Craft.t('mailcraft', 'None'));
+            $('#mailcraft-no-channel-warning').toggleClass('hidden', names.length > 0);
+        },
+
+        // --- Sidebar summary ---
 
         initSummaryBindings: function () {
             var self = this;

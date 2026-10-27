@@ -24,13 +24,48 @@
 }) }}
 
 {{ forms.lightswitchField({
-    label: "Send instant emails without the queue"|t('mailcraft'),
-    instructions: "Emails whose delay is set to “Instantly” are sent right away, during the request that triggered them, instead of being pushed to the queue. Delayed emails always use the queue.<br>Turn this on if your queue is not running reliably. Sending directly makes the triggering request slower, and if the mail server rejects the email it will be queued so it can still be retried."|t('mailcraft'),
+    label: "Send instant messages without the queue"|t('mailcraft'),
+    instructions: "Messages whose delay is set to “Instantly” are sent right away, during the request that triggered them, instead of being pushed to the queue. Delayed messages always use the queue.<br>Turn this on if your queue is not running reliably. Sending directly makes the triggering request slower, and if the delivery fails the message will be queued so it can still be retried."|t('mailcraft'),
     id: 'sendInstantEmailsDirectly',
     name: 'sendInstantEmailsDirectly',
     on: settings.sendInstantEmailsDirectly,
     errors: settings.getErrors('sendInstantEmailsDirectly'),
 }) }}
+
+<hr>
+
+<h2>{{ "Delivery channels"|t('mailcraft') }}</h2>
+
+{% set channelOptions = [] %}
+{% for handle, channel in channels %}
+    {% set channelOptions = channelOptions|merge([{ label: channel.getName(), value: handle }]) %}
+{% endfor %}
+
+{{ forms.checkboxSelectField({
+    label: "Allowed channels"|t('mailcraft'),
+    instructions: "Which ways of sending are available when editing a template. Templates can use several at once."|t('mailcraft'),
+    id: 'allowedChannels',
+    name: 'allowedChannels',
+    options: channelOptions,
+    values: settings.allowedChannels,
+    errors: settings.getErrors('allowedChannels'),
+}) }}
+
+{% for handle, channel in channels %}
+    {% if handle in settings.allowedChannels %}
+        {% set channelErrors = {} %}
+        {% for key, messages in settings.getErrors() %}
+            {% if key starts with "channelSettings.#{handle}." %}
+                {% set channelErrors = channelErrors|merge({ (key[("channelSettings.#{handle}.")|length:]): messages }) %}
+            {% endif %}
+        {% endfor %}
+        {% set channelHtml = channel.getGlobalSettingsHtml(settings.getChannelSettings(handle), channelErrors) %}
+        {% if channelHtml %}
+            <h3>{{ channel.getName() }}</h3>
+            {% namespace "channelSettings[#{handle}]" %}{{ channelHtml|raw }}{% endnamespace %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
 
 {# CKEditor setup if wysiwyg is enabled #}
 {% if settings.useWysiwyg and craft.app.plugins.isPluginInstalled('ckeditor') %}

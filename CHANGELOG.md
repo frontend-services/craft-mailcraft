@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.4.0 - 2026-10-27
+- Introduce sending channels
+
 ## 1.3.1 - 2026-10-27
 - Iframe preview fix
 - Config option to send messages instantly without queue (off by default)

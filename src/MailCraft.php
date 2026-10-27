@@ -28,6 +28,7 @@ use frontendservices\mailcraft\events\providers\UserDeleteEventProvider;
 use frontendservices\mailcraft\events\providers\UserUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\UserVerifyEmailEventProvider;
 use frontendservices\mailcraft\models\Settings;
+use frontendservices\mailcraft\services\ChannelRegistry;
 use frontendservices\mailcraft\services\CkeditorService;
 use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\DataService;
@@ -52,10 +53,11 @@ use yii\base\InvalidConfigException;
  * @property-read EventRegistry $eventRegistry
  * @property-read DataService $dataService
  * @property-read CkeditorService $ckeditor
+ * @property-read ChannelRegistry $channelRegistry
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.1.0';
+    public string $schemaVersion = '1.2.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;
@@ -100,6 +102,7 @@ class MailCraft extends Plugin
             'eventRegistry' => EventRegistry::class,
             'dataService' => DataService::class,
             'ckeditor' => CkeditorService::class,
+            'channelRegistry' => ChannelRegistry::class,
         ]);
 
         // Register variable
@@ -140,6 +143,7 @@ class MailCraft extends Plugin
         $variables = [
             'plugin' => $this,
             'settings' => $settings,
+            'channels' => $this->channelRegistry->getChannels(),
         ];
 
         if (\Craft::$app->plugins->isPluginInstalled('ckeditor')) {

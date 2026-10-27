@@ -87,6 +87,7 @@ class EmailTemplatesController extends Controller
 
         return $this->renderTemplate('mailcraft/email-templates/_edit', [
             'emailTemplate' => $emailTemplate,
+            'channels' => MailCraft::getInstance()->channelRegistry->getAllowedChannels(),
         ]);
     }
 
@@ -118,6 +119,7 @@ class EmailTemplatesController extends Controller
 
                 return $this->renderTemplate('mailcraft/email-templates/_edit', [
                     'emailTemplate' => $emailTemplate,
+                    'channels' => MailCraft::getInstance()->channelRegistry->getAllowedChannels(),
                 ]);
             }
         } catch (ElementNotFoundException $e) {
@@ -243,17 +245,20 @@ class EmailTemplatesController extends Controller
             ]);
         }
 
-        $emailService = MailCraft::getInstance()->emailService;
+        $result = MailCraft::getInstance()->emailService->sendTestToUser($emailTemplate, $user);
 
-        if (!$emailService->sendTest($emailTemplate, $user->email, $user->fullName ?: null)) {
+        if ($result['sent'] === [] && $result['errors'] === []) {
             return $this->asJson([
                 'success' => false,
-                'error' => $emailService->getLastError() ?? Craft::t('mailcraft', 'The test email could not be sent. Check the Craft log for details.'),
+                'error' => Craft::t('mailcraft', 'No enabled channel supports test sending.'),
             ]);
         }
 
         return $this->asJson([
-            'success' => true,
+            'success' => $result['sent'] !== [],
+            'sent' => $result['sent'],
+            'errors' => $result['errors'],
+            'error' => $result['sent'] === [] ? implode("\n", $result['errors']) : null,
             'to' => $user->email,
         ]);
     }
@@ -354,18 +359,29 @@ class EmailTemplatesController extends Controller
         $emailTemplate->subject = $this->request->getBodyParam('subject');
         $emailTemplate->event = $this->request->getBodyParam('event');
         $emailTemplate->template = $this->request->getBodyParam('template');
-        $emailTemplate->to = $this->request->getBodyParam('to');
-        $emailTemplate->toName = $this->request->getBodyParam('toName');
-        $emailTemplate->from = $this->request->getBodyParam('from');
-        $emailTemplate->fromName = $this->request->getBodyParam('fromName');
         $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
         $emailTemplate->delay = (int)$this->request->getBodyParam('delay');
-        $emailTemplate->cc = $this->request->getBodyParam('cc');
-        $emailTemplate->bcc = $this->request->getBodyParam('bcc');
-        $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
+
+        foreach (['to', 'toName', 'from', 'fromName', 'cc', 'bcc', 'replyTo'] as $field) {
+            $emailTemplate->$field = $this->request->getBodyParam($field, $emailTemplate->$field);
+        }
         $emailTemplate->conditions = $this->request->getBodyParam('conditions');
         $emailTemplate->condition1 = $this->request->getBodyParam('condition1');
         $emailTemplate->condition2 = $this->request->getBodyParam('condition2');
+
+        $posted = $this->request->getBodyParam('channels');
+        if (is_array($posted)) {
+            $registry = MailCraft::getInstance()->channelRegistry;
+            $channels = $emailTemplate->channels;
+            foreach ($posted as $handle => $settings) {
+                if (!is_string($handle) || $registry->getChannel($handle) === null || !is_array($settings)) {
+                    continue;
+                }
+                $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                $channels[$handle] = $settings;
+            }
+            $emailTemplate->channels = $channels;
+        }
 
         return $emailTemplate;
     }

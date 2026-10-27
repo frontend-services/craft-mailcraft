@@ -177,3 +177,22 @@
     border: 0;
     background: #fff;
 }
+
+#tabs a.mailcraft-channel-on .tab-label::after {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--enabled-color, #27ab83);
+    vertical-align: middle;
+}
+
+.mailcraft-channel--off > .field:not(.mailcraft-channel-switch) {
+    opacity: 0.5;
+}
+
+.mailcraft-no-channel-warning {
+    margin: 7px 0 14px;
+}
