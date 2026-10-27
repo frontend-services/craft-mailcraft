@@ -203,7 +203,7 @@ class EmailTemplatesController extends Controller
             return $this->asJson([
                 'success' => true,
                 'subject' => $emailService->renderTemplateString($emailTemplate->subject, $sampleData),
-                'html' => $emailService->renderTemplateString($emailTemplate->template, $sampleData),
+                'html' => $this->previewHtml($emailService->renderTemplateString($emailTemplate->template, $sampleData)),
             ]);
         } catch (Throwable $e) {
             return $this->asJson([
@@ -279,7 +279,7 @@ class EmailTemplatesController extends Controller
         $sampleData = $emailService->getSampleData($emailTemplate->event);
 
         try {
-            $html = (string)$emailService->renderTemplateString($emailTemplate->template, $sampleData);
+            $html = $this->previewHtml($emailService->renderTemplateString($emailTemplate->template, $sampleData));
         } catch (Throwable $e) {
             $html = '<pre style="color:red">' . htmlspecialchars($e->getMessage()) . '</pre>';
         }
@@ -308,6 +308,23 @@ class EmailTemplatesController extends Controller
         }
 
         return $this->asJson($examples);
+    }
+
+    /**
+     * Makes rendered email HTML presentable in the preview iframe.
+     */
+    private function previewHtml(?string $html): string
+    {
+        $html = (string)$html;
+
+        if (preg_match('/<(html|body)[\s>]/i', $html)) {
+            return $html;
+        }
+
+        return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
+            . 'body{margin:0;padding:24px;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1f2933;background:#fff;-webkit-font-smoothing:antialiased}'
+            . 'img{max-width:100%;height:auto}'
+            . '</style></head><body>' . $html . '</body></html>';
     }
 
     /**

@@ -471,10 +471,13 @@
         openPreviewModal: function (subject, html) {
             if (!this.previewModal) {
                 var $container = $('<div class="modal mailcraft-preview-modal"/>');
-                var $head = $('<div class="mailcraft-preview__head"/>').appendTo($container);
+                // Garnish fades the modal in with Velocity, which writes an inline `display: block` on the container
+                // and would cancel a flex layout set on it. The flex column therefore lives on an inner wrapper.
+                var $inner = $('<div class="mailcraft-preview__inner"/>').appendTo($container);
+                var $head = $('<div class="mailcraft-preview__head"/>').appendTo($inner);
                 $('<h2 class="mailcraft-preview__subject"/>').appendTo($head);
                 var $close = $('<button type="button" class="btn"/>').text(Craft.t('mailcraft', 'Close')).appendTo($head);
-                $('<iframe class="mailcraft-preview__frame" sandbox="allow-same-origin"/>').attr('title', Craft.t('mailcraft', 'Email preview')).appendTo($container);
+                $('<iframe class="mailcraft-preview__frame" sandbox="allow-same-origin"/>').attr('title', Craft.t('mailcraft', 'Email preview')).appendTo($inner);
                 this.previewModal = new Garnish.Modal($container, { autoShow: false, resizable: true });
                 this.addListener($close, 'click', function () { this.previewModal.hide(); });
             }
