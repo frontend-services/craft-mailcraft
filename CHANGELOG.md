@@ -2,6 +2,7 @@
 
 ## 1.3.1 - 2026-10-27
 - Iframe preview fix
+- Config option to send messages instantly without queue (off by default)
 
 ## 1.3.0 - 2026-10-27
 - New editor page design

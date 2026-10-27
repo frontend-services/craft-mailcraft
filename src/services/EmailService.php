@@ -297,7 +297,7 @@ class EmailService extends Component
     }
 
     /**
-     * Queue an email
+     * Renders a template and hands one email per recipient to the queue.
      */
     private function queueEmail(EmailTemplate $template, array $variables = [], int $delay = self::QUEUE_DELAY): void
     {
@@ -306,6 +306,7 @@ class EmailService extends Component
         $renderedToName = $emailVariables['toName'];
         unset($emailVariables['to'], $emailVariables['toName']);
 
+        $sendDirectly = $delay <= 0 && MailCraft::getInstance()->getSettings()->sendInstantEmailsDirectly;
         $sendTime = time() + $delay;
 
         $emails = array_map(
@@ -323,6 +324,19 @@ class EmailService extends Component
         foreach ($emails as $index => $email) {
             $emailVariables['to'] = $email;
             $emailVariables['toName'] = $names[$index] ?? null;
+
+            if ($sendDirectly) {
+                if ($this->sendEmail($emailVariables)) {
+                    continue;
+                }
+
+                Craft::warning(sprintf(
+                    'Direct send of "%s" to %s failed (%s); queueing it instead.',
+                    $emailVariables['subject'],
+                    $email,
+                    $this->lastError ?? 'unknown error'
+                ), __METHOD__);
+            }
 
             Craft::$app->queue->delay($delay)->push(new SendEmailJob([
                 'variables' => $emailVariables,

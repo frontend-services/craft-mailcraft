@@ -26,6 +26,12 @@ class Settings extends Model
     public bool $showCcBcc = false;
 
     /**
+     * @var bool Whether emails whose delay is "Instantly" are sent during the triggering request
+     * instead of being pushed to the queue. Delayed emails always go through the queue.
+     */
+    public bool $sendInstantEmailsDirectly = false;
+
+    /**
      * @var mixed|null CKEditor plugin instance if available
      */
     public mixed $ckeditor = null;
@@ -42,6 +48,8 @@ class Settings extends Model
             ['useWysiwyg', 'default', 'value' => true],
             ['showCcBcc', 'boolean'],
             ['showCcBcc', 'default', 'value' => false],
+            ['sendInstantEmailsDirectly', 'boolean'],
+            ['sendInstantEmailsDirectly', 'default', 'value' => false],
         ];
     }
 }

@@ -23,6 +23,15 @@
     errors: settings.getErrors('useWysiwyg'),
 }) }}
 
+{{ forms.lightswitchField({
+    label: "Send instant emails without the queue"|t('mailcraft'),
+    instructions: "Emails whose delay is set to “Instantly” are sent right away, during the request that triggered them, instead of being pushed to the queue. Delayed emails always use the queue.<br>Turn this on if your queue is not running reliably. Sending directly makes the triggering request slower, and if the mail server rejects the email it will be queued so it can still be retried."|t('mailcraft'),
+    id: 'sendInstantEmailsDirectly',
+    name: 'sendInstantEmailsDirectly',
+    on: settings.sendInstantEmailsDirectly,
+    errors: settings.getErrors('sendInstantEmailsDirectly'),
+}) }}
+
 {# CKEditor setup if wysiwyg is enabled #}
 {% if settings.useWysiwyg and craft.app.plugins.isPluginInstalled('ckeditor') %}
     <hr>
