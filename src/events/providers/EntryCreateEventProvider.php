@@ -72,7 +72,6 @@ class EntryCreateEventProvider extends AbstractEventProvider
                 'url' => 'Entry URL',
                 'section' => 'Section name',
                 'type' => 'Entry type',
-                'customFields.*' => 'Any custom fields',
             ]
         ];
 

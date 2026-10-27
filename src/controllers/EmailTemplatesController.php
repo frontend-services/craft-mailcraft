@@ -50,6 +50,8 @@ class EmailTemplatesController extends Controller
     }
 
     /**
+     * Create a new email template
+     * 
      * @throws NotFoundHttpException
      * @throws ForbiddenHttpException
      */
@@ -85,7 +87,6 @@ class EmailTemplatesController extends Controller
 
         return $this->renderTemplate('mailcraft/email-templates/_edit', [
             'emailTemplate' => $emailTemplate,
-            'exampleTemplates' => MailCraft::getInstance()->eventRegistry->getSampleEmails(),
         ]);
     }
 
@@ -102,33 +103,7 @@ class EmailTemplatesController extends Controller
         $this->requirePostRequest();
         $this->requirePermission('mailcraft:manageEmailTemplates');
 
-        $templateId = $this->request->getBodyParam('templateId');
-
-        if ($templateId) {
-            $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
-            if (!$emailTemplate) {
-                throw new NotFoundHttpException('Email template not found');
-            }
-        } else {
-            $emailTemplate = new EmailTemplate();
-        }
-
-        $emailTemplate->title = $this->request->getBodyParam('title');
-        $emailTemplate->subject = $this->request->getBodyParam('subject');
-        $emailTemplate->event = $this->request->getBodyParam('event');
-        $emailTemplate->template = $this->request->getBodyParam('template');
-        $emailTemplate->to = $this->request->getBodyParam('to');
-        $emailTemplate->toName = $this->request->getBodyParam('toName');
-        $emailTemplate->from = $this->request->getBodyParam('from');
-        $emailTemplate->fromName = $this->request->getBodyParam('fromName');
-        $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
-        $emailTemplate->delay = (int)$this->request->getBodyParam('delay');
-        $emailTemplate->cc = $this->request->getBodyParam('cc');
-        $emailTemplate->bcc = $this->request->getBodyParam('bcc');
-        $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
-        $emailTemplate->conditions = $this->request->getBodyParam('conditions');
-        $emailTemplate->condition1 = $this->request->getBodyParam('condition1');
-        $emailTemplate->condition2 = $this->request->getBodyParam('condition2');
+        $emailTemplate = $this->templateFromRequest();
 
         try {
             if (!Craft::$app->elements->saveElement($emailTemplate)) {
@@ -143,7 +118,6 @@ class EmailTemplatesController extends Controller
 
                 return $this->renderTemplate('mailcraft/email-templates/_edit', [
                     'emailTemplate' => $emailTemplate,
-                    'exampleTemplates' => MailCraft::getInstance()->eventRegistry->getSampleEmails(),
                 ]);
             }
         } catch (ElementNotFoundException $e) {
@@ -213,22 +187,23 @@ class EmailTemplatesController extends Controller
         $this->requirePermission('mailcraft:manageEmailTemplates');
         $this->requireAcceptsJson();
 
-        $templateId = $this->request->getRequiredBodyParam('id');
+        $emailTemplate = $this->templateFromRequest(populate: $this->request->getBodyParam('template') !== null);
 
-        $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
-        if (!$emailTemplate) {
-            throw new NotFoundHttpException('Email template not found');
+        if (!$emailTemplate->event) {
+            return $this->asJson([
+                'success' => false,
+                'error' => Craft::t('mailcraft', 'Choose an event first so the preview knows which variables to use.'),
+            ]);
         }
 
-        // Get sample data based on event type
-        $sampleData = MailCraft::getInstance()->emailService->getSampleData($emailTemplate->event);
+        $emailService = MailCraft::getInstance()->emailService;
+        $sampleData = $emailService->getSampleData($emailTemplate->event);
 
         try {
-            $html = Craft::$app->view->renderString($emailTemplate->template, $sampleData);
-
             return $this->asJson([
                 'success' => true,
-                'html' => $html,
+                'subject' => $emailService->renderTemplateString($emailTemplate->subject, $sampleData),
+                'html' => $emailService->renderTemplateString($emailTemplate->template, $sampleData),
             ]);
         } catch (Throwable $e) {
             return $this->asJson([
@@ -236,6 +211,51 @@ class EmailTemplatesController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Sends the template currently in the edit form to the logged-in user's email address, rendered with sample data.
+     *
+     * @throws MethodNotAllowedHttpException
+     * @throws BadRequestHttpException|NotFoundHttpException
+     * @throws ForbiddenHttpException
+     */
+    public function actionSendTest(): Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission('mailcraft:manageEmailTemplates');
+        $this->requireAcceptsJson();
+
+        $emailTemplate = $this->templateFromRequest();
+        $user = Craft::$app->getUser()->getIdentity();
+
+        if (!$user || !$user->email) {
+            return $this->asJson([
+                'success' => false,
+                'error' => Craft::t('mailcraft', 'Your user account has no email address to send the test to.'),
+            ]);
+        }
+
+        if (!$emailTemplate->event || !$emailTemplate->template) {
+            return $this->asJson([
+                'success' => false,
+                'error' => Craft::t('mailcraft', 'Choose an event and write the email body before sending a test.'),
+            ]);
+        }
+
+        $emailService = MailCraft::getInstance()->emailService;
+
+        if (!$emailService->sendTest($emailTemplate, $user->email, $user->fullName ?: null)) {
+            return $this->asJson([
+                'success' => false,
+                'error' => $emailService->getLastError() ?? Craft::t('mailcraft', 'The test email could not be sent. Check the Craft log for details.'),
+            ]);
+        }
+
+        return $this->asJson([
+            'success' => true,
+            'to' => $user->email,
+        ]);
     }
 
     /**
@@ -255,10 +275,11 @@ class EmailTemplatesController extends Controller
             throw new NotFoundHttpException('Email template not found');
         }
 
-        $sampleData = MailCraft::getInstance()->emailService->getSampleData($emailTemplate->event);
+        $emailService = MailCraft::getInstance()->emailService;
+        $sampleData = $emailService->getSampleData($emailTemplate->event);
 
         try {
-            $html = Craft::$app->view->renderString($emailTemplate->template, $sampleData);
+            $html = (string)$emailService->renderTemplateString($emailTemplate->template, $sampleData);
         } catch (Throwable $e) {
             $html = '<pre style="color:red">' . htmlspecialchars($e->getMessage()) . '</pre>';
         }
@@ -287,5 +308,48 @@ class EmailTemplatesController extends Controller
         }
 
         return $this->asJson($examples);
+    }
+
+    /**
+     * Loads the template named by the `templateId` body param (or a new one) and,
+     * unless told otherwise, fills it with the posted form values.
+     *
+     * @throws NotFoundHttpException
+     */
+    private function templateFromRequest(bool $populate = true): EmailTemplate
+    {
+        $templateId = $this->request->getBodyParam('templateId') ?: $this->request->getBodyParam('id');
+
+        if ($templateId) {
+            $emailTemplate = EmailTemplate::find()->id($templateId)->status(null)->one();
+            if (!$emailTemplate) {
+                throw new NotFoundHttpException('Email template not found');
+            }
+        } else {
+            $emailTemplate = new EmailTemplate();
+        }
+
+        if (!$populate) {
+            return $emailTemplate;
+        }
+
+        $emailTemplate->title = $this->request->getBodyParam('title');
+        $emailTemplate->subject = $this->request->getBodyParam('subject');
+        $emailTemplate->event = $this->request->getBodyParam('event');
+        $emailTemplate->template = $this->request->getBodyParam('template');
+        $emailTemplate->to = $this->request->getBodyParam('to');
+        $emailTemplate->toName = $this->request->getBodyParam('toName');
+        $emailTemplate->from = $this->request->getBodyParam('from');
+        $emailTemplate->fromName = $this->request->getBodyParam('fromName');
+        $emailTemplate->enabled = (bool)$this->request->getBodyParam('enabled');
+        $emailTemplate->delay = (int)$this->request->getBodyParam('delay');
+        $emailTemplate->cc = $this->request->getBodyParam('cc');
+        $emailTemplate->bcc = $this->request->getBodyParam('bcc');
+        $emailTemplate->replyTo = $this->request->getBodyParam('replyTo');
+        $emailTemplate->conditions = $this->request->getBodyParam('conditions');
+        $emailTemplate->condition1 = $this->request->getBodyParam('condition1');
+        $emailTemplate->condition2 = $this->request->getBodyParam('condition2');
+
+        return $emailTemplate;
     }
 }

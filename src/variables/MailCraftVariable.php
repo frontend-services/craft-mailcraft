@@ -3,8 +3,13 @@
 namespace frontendservices\mailcraft\variables;
 
 use Craft;
+use craft\helpers\App;
 use craft\ckeditor\events\ModifyConfigEvent;
 use craft\ckeditor\Field;
+use craft\ckeditor\helpers\CkeditorConfig;
+use craft\ckeditor\Plugin as CkeditorPlugin;
+use craft\ckeditor\web\assets\BaseCkeditorPackageAsset;
+use frontendservices\mailcraft\assetbundles\ckeditor\MailCraftCkeditorAsset;
 use craft\web\View;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\services\EventRegistry;
@@ -36,8 +41,10 @@ class MailCraftVariable
 
         $events = $registry->getAllEvents();
         $options = [
-            'label' => Craft::t('mailcraft', 'Select an event'),
-            'value' => '',
+            [
+                'label' => Craft::t('mailcraft', 'Select an event'),
+                'value' => '',
+            ],
         ];
 
         foreach ($events as $group => $groupEvents) {
@@ -63,13 +70,60 @@ class MailCraftVariable
     }
 
     /**
+     * Registers MailCraft's CKEditor package (Twig placeholder highlighting).
+     *
+     * Requires the CKEditor plugin 5.x (import-map based packages); older versions
+     * simply render the editor without highlighting.
+     *
+     * - CKEditor 5.8+ accepts late registrations through `Plugin::registerCkeditorPackage()`
+     *   and takes care of the import map, package config and asset bundle itself.
+     * - CKEditor 5.0–5.7 only read packages during their own init(), which runs before
+     *   MailCraft's, so there the import map entry, package config and bundle are
+     *   registered by hand right before the body field is rendered.
+     */
+    private function registerCkeditorPackage(): void
+    {
+        if (
+            !class_exists(BaseCkeditorPackageAsset::class)
+            || !class_exists(CkeditorConfig::class)
+            || !class_exists(CkeditorPlugin::class)
+        ) {
+            return; // CKEditor plugin missing or too old for third-party packages
+        }
+
+        $view = Craft::$app->getView();
+        if (!method_exists($view, 'registerJsImport')) {
+            return;
+        }
+
+        try {
+            if (method_exists(CkeditorPlugin::class, 'registerCkeditorPackageBundles')) {
+                // 5.8+
+                CkeditorPlugin::registerCkeditorPackage(MailCraftCkeditorAsset::class, MailCraftCkeditorAsset::ENTRY);
+                return;
+            }
+
+            // 5.0–5.7
+            $bundle = $view->registerAssetBundle(MailCraftCkeditorAsset::class);
+            if (!$bundle instanceof MailCraftCkeditorAsset) {
+                return;
+            }
+            $url = $view->getAssetManager()->getAssetUrl($bundle, MailCraftCkeditorAsset::ENTRY, false);
+            $view->registerJsImport($bundle->namespace, $url);
+            $bundle->registerPackage();
+        } catch (\Throwable $e) {
+            Craft::warning('MailCraft: could not register CKEditor highlight package: ' . $e->getMessage(), __METHOD__);
+        }
+    }
+
+    /**
      * Template text editor html
      */
     public function templateEditor($emailTemplate): string
     {
         $handle = 'template';
-        $name = Craft::t('mailcraft', 'Template');
-        $instructions = Craft::t('mailcraft', 'Email body template. Use Twig syntax for dynamic content.');
+        $name = Craft::t('mailcraft', 'Email body');
+        $instructions = Craft::t('mailcraft', 'Write the email. Paste variables from the panel to insert dynamic content. Twig syntax works too.');
         $template = $emailTemplate->template;
         $pluginSettings = MailCraft::getInstance()->getSettings();
 
@@ -133,6 +187,9 @@ class MailCraftVariable
                     $ckeditorSettings
                 )
             );
+
+            // Twig placeholder highlighting (editing view only, nothing stored)
+            $this->registerCkeditorPackage();
 
             $ckEditor = $field->getInputHtml($template, null);
 
@@ -284,5 +341,55 @@ EOT;
         } finally {
             $view->setTemplateMode($oldMode);
         }
+    }
+
+    /**
+     * Template variables documented by every event provider.
+     * Used by the edit page to show which `{{ … }}` placeholders an event supports.
+     */
+    public function getEventTemplateVariables(): array
+    {
+        $out = [];
+        foreach (MailCraft::getInstance()->eventRegistry->getProviders() as $id => $provider) {
+            $out[$id] = $provider->getTemplateVariables();
+        }
+        return $out;
+    }
+
+    /**
+     * Example emails from every event provider.
+     */
+    public function getTemplateExamples(): array
+    {
+        $out = [];
+        foreach (MailCraft::getInstance()->eventRegistry->getProviders() as $id => $provider) {
+            $out[$id] = $provider->getTemplateExample();
+        }
+        return $out;
+    }
+
+    /**
+     * Human labels for every event.
+     */
+    public function getEventLabels(): array
+    {
+        $out = [];
+        foreach (MailCraft::getInstance()->eventRegistry->getProviders() as $id => $provider) {
+            $out[$id] = $provider->getEventDetails()['label'] ?? $id;
+        }
+        return $out;
+    }
+
+    /**
+     * The system From address and name, with environment variables resolved.
+     * Shown as placeholders so editors know what an empty From field falls back to.
+     */
+    public function getSystemMailDefaults(): array
+    {
+        $settings = App::mailSettings();
+        return [
+            'fromEmail' => (string)App::parseEnv($settings->fromEmail),
+            'fromName' => (string)App::parseEnv($settings->fromName),
+        ];
     }
 }

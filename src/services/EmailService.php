@@ -4,6 +4,9 @@ namespace frontendservices\mailcraft\services;
 
 use Craft;
 use craft\base\Component;
+use craft\elements\Asset;
+use craft\elements\Entry;
+use craft\elements\User;
 use craft\mail\Mailer;
 use craft\mail\Message;
 use frontendservices\mailcraft\base\AbstractEventProvider;
@@ -127,12 +130,17 @@ class EmailService extends Component
     }
 
     /**
-     * Queue an email for sending
+     * Renders every address and text field of a template against the given variables.
+     *
+     * Returns the array shape sendEmail() expects. `to` and `toName` are rendered but
+     * not split into individual recipients; queueEmail() does that.
      */
-    private function queueEmail(EmailTemplate $template, array $variables = [], int $delay = self::QUEUE_DELAY): void
+    public function buildEmailVariables(EmailTemplate $template, array $variables = []): array
     {
-        $emailVariables = [
+        return [
             'subject' => $this->renderString($template->subject, $variables),
+            'to' => $this->renderString($template->to, $variables),
+            'toName' => $this->renderString($template->toName, $variables),
             'cc' => $this->renderString($template->cc, $variables),
             'bcc' => $this->renderString($template->bcc, $variables),
             'from' => $this->renderString($template->from, $variables),
@@ -140,19 +148,134 @@ class EmailService extends Component
             'replyTo' => $this->renderString($template->replyTo, $variables),
             'message' => $this->renderString($template->template, $variables),
         ];
+    }
+
+    /**
+     * Sends a template immediately to a single address, rendered with sample data.
+     *
+     * Used by the "Send a test to me" button on the edit page. The template does not have to be saved.
+     */
+    public function sendTest(EmailTemplate $template, string $to, ?string $toName = null): bool
+    {
+        $variables = $this->buildEmailVariables($template, $this->getSampleData($template->event));
+        $variables['to'] = $to;
+        $variables['toName'] = $toName;
+        $variables['subject'] = '[' . Craft::t('mailcraft', 'Test') . '] ' . ($variables['subject'] ?? '');
+
+        return $this->sendEmail($variables);
+    }
+
+    /**
+     * Renders a template string with the given variables, returning null if the string is empty.
+     *
+     * @throws \Throwable
+     */
+    public function renderTemplateString(?string $string, array $variables = []): ?string
+    {
+        if (!$string) {
+            return null;
+        }
+
+        // Twig escapes `>` and `<` to `&gt;` and `&lt;`, which breaks HTML in email templates. Unescape them before rendering.
+        $string = preg_replace('/({[{%][^}]*?)&gt;([^}]*?[%}])/', '$1>$2', $string);
+        $string = preg_replace('/({[{%][^}]*?)&lt;([^}]*?[%}])/', '$1<$2', $string);
+
+        return Craft::$app->view->renderString($string, $variables);
+    }
+
+    /**
+     * Builds realistic sample variables for an event so a template can be previewed without the event actually happening.
+     *
+     * Element-typed variables (user, entry, asset, order) use a real element from the site when one exists. Everything else falls 
+     * back to the provider's documented field list so `{{ user.email }}` still renders something readable.
+     */
+    public function getSampleData(?string $event): array
+    {
+        if (!$event) {
+            return [];
+        }
+
+        $provider = MailCraft::getInstance()->eventRegistry->getProviders()[$event] ?? null;
+        if (!$provider) {
+            return [];
+        }
+
+        $data = [];
+        foreach ($provider->getTemplateVariables() as $key => $definition) {
+            // `now`, `siteName` and `siteUrl` are Twig globals in Craft, don't shadow them
+            if (in_array($key, ['now', 'siteName', 'siteUrl'], true)) {
+                continue;
+            }
+            $data[$key] = $this->sampleValue((string)$key, is_array($definition) ? $definition : []);
+        }
+
+        return $data;
+    }
+
+    private function sampleValue(string $key, array $definition): mixed
+    {
+        $type = strtolower((string)($definition['type'] ?? ''));
+
+        try {
+            $element = match ($type) {
+                'user' => Craft::$app->getUser()->getIdentity() ?? User::find()->status(null)->one(),
+                'entry' => Entry::find()->status(null)->orderBy(['dateUpdated' => SORT_DESC])->one(),
+                'asset' => Asset::find()->orderBy(['dateUpdated' => SORT_DESC])->one(),
+                'order' => class_exists(\craft\commerce\elements\Order::class)
+                    ? \craft\commerce\elements\Order::find()->isCompleted()->orderBy(['dateOrdered' => SORT_DESC])->one()
+                    : null,
+                default => null,
+            };
+        } catch (\Throwable $e) {
+            Craft::warning('Could not load a sample element for ' . $key . ': ' . $e->getMessage(), __METHOD__);
+            $element = null;
+        }
+
+        if ($element !== null) {
+            return $element;
+        }
+
+        if (!empty($definition['fields']) && is_array($definition['fields'])) {
+            $sample = [];
+            foreach ($definition['fields'] as $field => $label) {
+                $sample[$field] = is_string($label) ? $label : (string)$field;
+            }
+            return $sample;
+        }
+
+        return match ($key) {
+            'newStatus' => 'shipped',
+            'oldStatus' => 'processing',
+            'attempt' => 1,
+            'error' => 'Example error message',
+            'changedFields' => ['Title'],
+            'changedFieldsList' => 'Title',
+            default => $definition['description'] ?? ('Example ' . $key),
+        };
+    }
+
+    /**
+     * Queue an email for sending
+     */
+    private function queueEmail(EmailTemplate $template, array $variables = [], int $delay = self::QUEUE_DELAY): void
+    {
+        $emailVariables = $this->buildEmailVariables($template, $variables);
+        $renderedTo = $emailVariables['to'];
+        $renderedToName = $emailVariables['toName'];
+        unset($emailVariables['to'], $emailVariables['toName']);
 
         $sendTime = time() + $delay;
 
         $emails = array_map(
             'trim',
-            explode(',', $this->renderString($template->to, $variables)),
+            explode(',', (string)$renderedTo),
         );
 
         $names = [];
         if (count($emails) > 1) {
-            $names = explode(',', $this->renderString($template->toName, $variables));
+            $names = explode(',', (string)$renderedToName);
         } else {
-            $names[] = $this->renderString($template->toName, $variables);
+            $names[] = $renderedToName;
         }
 
         foreach ($emails as $index => $email) {
@@ -164,7 +287,6 @@ class EmailService extends Component
                 'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $emailVariables['subject'],
             ]));
         }
-
     }
 
     /**
@@ -189,22 +311,13 @@ class EmailService extends Component
     private function renderString(?string $string, array $variables = []): ?string
     {
         try {
-            if (!$string) {
-                return null;
-            }
-
-            // fix &gt; and &lt; to < and > inside of {% %} and {{ }}
-            $string = preg_replace('/({[{%][^}]*?)&gt;([^}]*?[%}])/', '$1>$2', $string);
-            $string = preg_replace('/({[{%][^}]*?)&lt;([^}]*?[%}])/', '$1<$2', $string);
-
-            return Craft::$app->view->renderString($string, $variables);
+            return $this->renderTemplateString($string, $variables);
         } catch (LoaderError|SyntaxError $e) {
             Craft::error('Error rendering email template: ' . $e->getMessage(), __METHOD__);
         }
 
         return '';
     }
-
 
     /**
      * Handle a trigger event

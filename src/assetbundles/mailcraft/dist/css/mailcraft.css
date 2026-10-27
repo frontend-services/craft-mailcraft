@@ -6,3 +6,169 @@
 .elementindex .status.disabled {
     background-color: #939393;
 }
+
+/* ───────────── Edit page: Content tab ───────────── */
+.mailcraft-editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    gap: var(--l, 16px);
+    align-items: start;
+}
+
+.mailcraft-editor-grid > .field {
+    margin-block: 0 !important;
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    .mailcraft-editor-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.mailcraft-vars {
+    background: var(--gray-050);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg, 5px);
+    padding: 12px 14px;
+    font-size: 13px;
+    min-width: 0;
+    /* line up with the editor, below the field label and instructions */
+    margin-top: 3.1rem;
+}
+
+.mailcraft-vars__title {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.mailcraft-vars__hint {
+    margin: 0 0 8px;
+}
+
+.mailcraft-vars__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.mailcraft-vars__list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    padding: 5px 0;
+    border-top: 1px solid var(--gray-200);
+}
+
+.mailcraft-vars__list li:first-child {
+    border-top: 0;
+}
+
+.mailcraft-vars__var {
+    appearance: none;
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 12px !important;
+    cursor: pointer;
+    color: var(--text-color);
+    text-align: left;
+    word-break: break-all;
+}
+
+.mailcraft-vars__var:hover,
+.mailcraft-vars__var:focus-visible {
+    border-color: var(--gray-400);
+}
+
+.mailcraft-vars__desc {
+    font-size: 12px;
+}
+
+/* ───────────── Edit page: Trigger tab ───────────── */
+.mailcraft-event-row {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.mailcraft-event-row .selectize {
+    min-width: 18rem;
+}
+
+.mailcraft-delay {
+    align-items: center;
+}
+
+.mailcraft-delay__amount {
+    width: 5rem !important;
+}
+
+.mailcraft-delay__presets {
+    margin-top: 8px;
+}
+
+.mailcraft-disclosure {
+    margin-top: 10px;
+}
+
+/* ───────────── Edit page: Recipients tab ───────────── */
+.mailcraft-quick-picks {
+    margin-top: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ───────────── Edit page: sidebar ───────────── */
+.mailcraft-summary .value code {
+    font-size: 12px;
+    word-break: break-all;
+}
+
+.mailcraft-summary .value {
+    overflow-wrap: anywhere;
+}
+
+#mailcraft-send-test-field > .input {
+    display: block !important;
+}
+
+.mailcraft-send-test__hint {
+    display: block;
+    margin-top: 6px;
+}
+
+/* ───────────── Preview modal ───────────── */
+.mailcraft-preview-modal {
+    width: min(960px, 92vw);
+    height: min(85vh, 1000px);
+    display: flex;
+    flex-direction: column;
+}
+
+.mailcraft-preview__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--gray-200);
+    background: var(--gray-050);
+}
+
+.mailcraft-preview__subject {
+    margin: 0;
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mailcraft-preview__frame {
+    flex: 1 1 auto;
+    width: 100%;
+    border: 0;
+    background: #fff;
+}

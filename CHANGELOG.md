@@ -1,5 +1,11 @@
 # Release Notes for MailCraft
 
+## 1.3.0 - 2026-10-27
+- New editor page design
+- Template previews
+- Click-to-copy variables
+- Twig variable highlighting in CKEditor
+
 ## 1.2.6 - 2026-10-26
 - Performance improvements/fixes
 - Improve failed queue job handling
