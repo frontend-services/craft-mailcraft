@@ -32,6 +32,11 @@ class SendEmailJob extends BaseJob implements RetryableJobInterface
     public array $variables = [];
 
     /**
+     * @var int|null Status row to update, or null for jobs queued by 1.4.0 and earlier
+     */
+    public ?int $statusId = null;
+
+    /**
      * @inheritdoc
      */
     public function execute($queue): void
@@ -46,24 +51,33 @@ class SendEmailJob extends BaseJob implements RetryableJobInterface
             $payload = $this->payload;
         }
 
+        $statusService = MailCraft::getInstance()->statusService;
+
         if ($channel === null) {
-            throw new RuntimeException(sprintf(
+            $message = sprintf(
                 'MailCraft: channel "%s" is not registered; is the plugin that provides it installed?',
                 (string)$this->channel
-            ));
+            );
+            $statusService->markFailed($this->statusId, $message);
+
+            throw new RuntimeException($message);
         }
 
         if (!$channel->deliver($payload)) {
             $reason = $channel->getLastError();
-
-            throw new RuntimeException(sprintf(
+            $message = sprintf(
                 'MailCraft could not send "%s" via %s to %s%s',
                 $payload['subject'] ?? '',
                 $channel->getName(),
                 $payload['to'] ?? '',
                 $reason ? ': ' . $reason : '. See the Craft log for details.'
-            ));
+            );
+            $statusService->markFailed($this->statusId, $message);
+
+            throw new RuntimeException($message);
         }
+
+        $statusService->markSent($this->statusId);
     }
 
     /**
@@ -82,7 +96,19 @@ class SendEmailJob extends BaseJob implements RetryableJobInterface
     public function canRetry($attempt, $error): bool
     {
         // Allow two automatic retries for transient transport failures.
-        return $attempt < 3;
+        $retry = $attempt < 3;
+        if ($retry) {
+            MailCraft::getInstance()->statusService->markQueued($this->statusId, null, $error instanceof \Throwable ? $error->getMessage() : null);
+        } else {
+            // execute() may not have marked the row (a throwing deliver(), or a TTR expiry
+            // where the job never ran), so mark it here when giving up
+            MailCraft::getInstance()->statusService->markFailed(
+                $this->statusId,
+                $error instanceof \Throwable ? $error->getMessage() : 'Gave up after ' . $attempt . ' attempts'
+            );
+        }
+
+        return $retry;
     }
 
     /**

@@ -296,13 +296,20 @@ class EmailService extends Component
 
         $sendDirectly = $delay <= 0 && MailCraft::getInstance()->getSettings()->sendInstantEmailsDirectly;
         $sendTime = time() + $delay;
+        $statusService = MailCraft::getInstance()->statusService;
 
         foreach ($channels as $channel) {
             foreach ($channel->buildDeliveries($template, $content, $variables) as $payload) {
+                $statusId = $statusService->record($channel, $template, $content, $payload);
+
                 if ($sendDirectly) {
                     if ($channel->deliver($payload)) {
+                        $statusService->markSent($statusId);
                         continue;
                     }
+
+                    $directError = $channel->getLastError() ?? 'unknown error';
+                    $statusService->markFailed($statusId, $directError);
 
                     Craft::warning(sprintf(
                         'Direct send of "%s" via %s to %s failed (%s); queueing it instead.',
@@ -311,13 +318,19 @@ class EmailService extends Component
                         $payload['to'] ?? '',
                         $channel->getLastError() ?? 'unknown error'
                     ), __METHOD__);
+
+                    // back to queued before the push, keeping the direct-send error, so a
+                    // fast worker's result is never overwritten afterwards
+                    $statusService->markQueued($statusId, null, $directError);
                 }
 
-                Craft::$app->queue->delay($delay)->push(new SendEmailJob([
+                $jobId = Craft::$app->queue->delay($delay)->push(new SendEmailJob([
                     'channel' => $channel->getHandle(),
                     'payload' => $payload,
+                    'statusId' => $statusId,
                     'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $content['subject'],
                 ]));
+                $statusService->setJobId($statusId, $jobId !== null ? (string)$jobId : null);
             }
         }
     }

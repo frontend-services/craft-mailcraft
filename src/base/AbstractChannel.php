@@ -116,4 +116,26 @@ abstract class AbstractChannel
     {
         return [];
     }
+
+    /**
+     * One line describing where a payload goes, for the Status page.
+     */
+    public function describeRecipient(array $payload): string
+    {
+        return (string)($payload['to'] ?? '');
+    }
+
+    /**
+     * The payload's main body for the Status detail page, or null when it has none.
+     */
+    public function describeBody(array $payload): ?string
+    {
+        foreach (['message', 'body', 'content'] as $key) {
+            if (isset($payload[$key]) && is_string($payload[$key])) {
+                return $payload[$key];
+            }
+        }
+
+        return null;
+    }
 }

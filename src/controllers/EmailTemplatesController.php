@@ -8,6 +8,7 @@ use craft\errors\MissingComponentException;
 use craft\web\Controller;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\helpers\PreviewHelper;
 use frontendservices\mailcraft\MailCraft;
 use Throwable;
 use yii\base\Exception;
@@ -320,16 +321,7 @@ class EmailTemplatesController extends Controller
      */
     private function previewHtml(?string $html): string
     {
-        $html = (string)$html;
-
-        if (preg_match('/<(html|body)[\s>]/i', $html)) {
-            return $html;
-        }
-
-        return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
-            . 'body{margin:0;padding:24px;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1f2933;background:#fff;-webkit-font-smoothing:antialiased}'
-            . 'img{max-width:100%;height:auto}'
-            . '</style></head><body>' . $html . '</body></html>';
+        return PreviewHelper::wrap($html);
     }
 
     /**

@@ -52,7 +52,7 @@
 }) }}
 
 {% for handle, channel in channels %}
-    {% if handle in settings.allowedChannels %}
+    {% if handle in settings.allowedChannels or '*' in settings.allowedChannels %}
         {% set channelErrors = {} %}
         {% for key, messages in settings.getErrors() %}
             {% if key starts with "channelSettings.#{handle}." %}
@@ -60,12 +60,33 @@
             {% endif %}
         {% endfor %}
         {% set channelHtml = channel.getGlobalSettingsHtml(settings.getChannelSettings(handle), channelErrors) %}
+        <h3>{{ channel.getName() }}</h3>
+        {{ forms.lightswitchField({
+            label: "Record on the Status page"|t('mailcraft'),
+            instructions: "Keep a log of every message sent through this channel, with the option to resend it."|t('mailcraft'),
+            id: "statusChannels-#{handle}",
+            name: 'statusChannels[]',
+            value: handle,
+            on: settings.isStatusChannel(handle),
+        }) }}
         {% if channelHtml %}
-            <h3>{{ channel.getName() }}</h3>
             {% namespace "channelSettings[#{handle}]" %}{{ channelHtml|raw }}{% endnamespace %}
         {% endif %}
     {% endif %}
 {% endfor %}
+
+{{ forms.textField({
+    label: "Keep statuses for"|t('mailcraft'),
+    instructions: "Sent and failed entries are removed this many days after their last update. Set to 0 to keep them forever."|t('mailcraft'),
+    id: 'statusRetentionDays',
+    name: 'statusRetentionDays',
+    type: 'number',
+    min: 0,
+    unit: 'days'|t('mailcraft'),
+    size: 5,
+    value: settings.statusRetentionDays,
+    errors: settings.getErrors('statusRetentionDays'),
+}) }}
 
 {# CKEditor setup if wysiwyg is enabled #}
 {% if settings.useWysiwyg and craft.app.plugins.isPluginInstalled('ckeditor') %}

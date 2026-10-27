@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.5.0 - 2026-10-27
+- Status page
+
 ## 1.4.0 - 2026-10-27
 - Introduce sending channels
 

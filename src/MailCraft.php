@@ -34,6 +34,7 @@ use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\DataService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\services\EventRegistry;
+use frontendservices\mailcraft\services\StatusService;
 use frontendservices\mailcraft\variables\MailCraftVariable;
 use yii\base\Event;
 use yii\base\InvalidConfigException;
@@ -54,10 +55,11 @@ use yii\base\InvalidConfigException;
  * @property-read DataService $dataService
  * @property-read CkeditorService $ckeditor
  * @property-read ChannelRegistry $channelRegistry
+ * @property-read StatusService $statusService
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.2.0';
+    public string $schemaVersion = '1.3.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;
@@ -103,6 +105,7 @@ class MailCraft extends Plugin
             'dataService' => DataService::class,
             'ckeditor' => CkeditorService::class,
             'channelRegistry' => ChannelRegistry::class,
+            'statusService' => StatusService::class,
         ]);
 
         // Register variable
@@ -122,6 +125,11 @@ class MailCraft extends Plugin
         });
 
         $this->registerProviders();
+
+        // Purge old statuses on GC run
+        Event::on(\craft\services\Gc::class, \craft\services\Gc::EVENT_RUN, function() {
+            $this->statusService->purge();
+        });
 
         $emailService = $this->get('emailService');
     }
@@ -262,6 +270,8 @@ class MailCraft extends Plugin
                 $event->rules['mailcraft'] = 'mailcraft/email-templates/index';
                 $event->rules['mailcraft/email-templates/new'] = 'mailcraft/email-templates/new';
                 $event->rules['mailcraft/email-templates/<templateId:\d+>'] = 'mailcraft/email-templates/edit';
+                $event->rules['mailcraft/status'] = 'mailcraft/status/index';
+                $event->rules['mailcraft/status/<id:\d+>'] = 'mailcraft/status/view';
             }
         );
     }
@@ -290,6 +300,15 @@ class MailCraft extends Plugin
                             'label' => Craft::t('mailcraft', 'Manage email templates'),
                             'info' => Craft::t('mailcraft', 'Create, edit and delete email templates'),
                         ],
+                        'mailcraft:viewStatus' => [
+                            'label' => Craft::t('mailcraft', 'View the Status page'),
+                            'info' => Craft::t('mailcraft', 'Includes the full contents of every recorded message'),
+                            'nested' => [
+                                'mailcraft:manageStatus' => [
+                                    'label' => Craft::t('mailcraft', 'Resend and delete statuses'),
+                                ],
+                            ],
+                        ],
                     ],
                 ];
             }
@@ -302,6 +321,27 @@ class MailCraft extends Plugin
 
         // Use the custom plugin name from settings
         $item['label'] = $this->getSettings()->pluginName;
+
+        $user = Craft::$app->getUser();
+        $canTemplates = $user->checkPermission('mailcraft:manageEmailTemplates');
+        // hasRows() swallows errors (e.g. the table is missing before migrations run)
+        $canStatus = $user->checkPermission('mailcraft:viewStatus')
+            && ($this->getSettings()->statusChannels !== [] || $this->statusService->hasRows());
+
+        if ($canStatus) {
+            $subnav = [];
+            if ($canTemplates) {
+                $subnav['templates'] = ['label' => Craft::t('mailcraft', 'Email Templates'), 'url' => 'mailcraft'];
+            }
+            $subnav['status'] = ['label' => Craft::t('mailcraft', 'Status'), 'url' => 'mailcraft/status'];
+            // Craft 5 renders any non-empty subnav, so only add one when there is a choice
+            if (count($subnav) > 1) {
+                $item['subnav'] = $subnav;
+            }
+            if (!$canTemplates) {
+                $item['url'] = 'mailcraft/status';
+            }
+        }
 
         return $item;
     }

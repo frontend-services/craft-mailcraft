@@ -31,7 +31,7 @@
 {% set pluginSettings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}
 {% set isNew = not emailTemplate.id %}
 {% set title = emailTemplate.title ?: "New Email Template"|t('mailcraft') %}
-{% set selectedSubnavItem = 'mailcraft' %}
+{% set selectedSubnavItem = 'templates' %}
 {% set fullPageForm = true %}
 {% set mailDefaults = craft.mailCraft.getSystemMailDefaults() %}
 {% set eventLabels = craft.mailCraft.getEventLabels() %}

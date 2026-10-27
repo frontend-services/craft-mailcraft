@@ -1,7 +1,7 @@
 {% extends '_layouts/elementindex.twig' %}
 {% set title = "Email Templates"|t('mailcraft') %}
 {% set elementType = 'frontendservices\\mailcraft\\elements\\EmailTemplate' %}
-{% set selectedSubnavItem = 'mailcraft' %}
+{% set selectedSubnavItem = 'templates' %}
 
 {% block actionButton %}
     {% if currentUser.can('mailcraft:manageEmailTemplates') %}

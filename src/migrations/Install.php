@@ -32,6 +32,7 @@ class Install extends Migration
      */
     public function safeDown(): bool
     {
+        $this->dropTableIfExists('{{%mailcraft_statuses}}');
         $this->dropTableIfExists('{{%mailcraft_emailtemplates}}');
         $this->dropTableIfExists('{{%mailcraft_data}}');
         return true;
@@ -78,6 +79,25 @@ class Install extends Migration
             'uid' => $this->uid(),
         ]);
 
+        $this->createTable('{{%mailcraft_statuses}}', [
+            'id' => $this->primaryKey(),
+            'templateId' => $this->integer(),
+            'templateTitle' => $this->string(255),
+            'channel' => $this->string(64)->notNull(),
+            'status' => $this->string(16)->notNull(),
+            'subject' => $this->string(255),
+            'recipient' => $this->string(255),
+            'payload' => $this->mediumText()->notNull(),
+            'error' => $this->text(),
+            'attempts' => $this->smallInteger()->unsigned()->notNull()->defaultValue(0),
+            'jobId' => $this->string(64),
+            'resentFromId' => $this->integer(),
+            'dateSent' => $this->dateTime(),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
         return true;
     }
 
@@ -99,6 +119,10 @@ class Install extends Migration
             'key',
             true
         );
+
+        foreach (['channel', 'status', 'dateCreated', 'dateUpdated', 'resentFromId', 'templateId'] as $column) {
+            $this->createIndex(null, '{{%mailcraft_statuses}}', $column, false);
+        }
     }
 
     /**
@@ -113,6 +137,26 @@ class Install extends Migration
             Table::ELEMENTS,
             'id',
             'CASCADE',
+            null
+        );
+
+        $this->addForeignKey(
+            null,
+            '{{%mailcraft_statuses}}',
+            'templateId',
+            '{{%mailcraft_emailtemplates}}',
+            'id',
+            'SET NULL',
+            null
+        );
+
+        $this->addForeignKey(
+            null,
+            '{{%mailcraft_statuses}}',
+            'resentFromId',
+            '{{%mailcraft_statuses}}',
+            'id',
+            'SET NULL',
             null
         );
     }

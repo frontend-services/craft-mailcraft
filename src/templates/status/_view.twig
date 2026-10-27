@@ -1,0 +1,130 @@
+{% extends '_layouts/cp' %}
+
+{% do view.registerAssetBundle('frontendservices\\mailcraft\\assetbundles\\mailcraft\\MailCraftAsset') %}
+
+{% set title = status.subject ?: 'Status'|t('mailcraft') %}
+{% set selectedSubnavItem = 'status' %}
+{% set crumbs = [
+    { label: 'Status'|t('mailcraft'), url: cpUrl('mailcraft/status') },
+] %}
+{% set statusLabels = {
+    queued: 'Queued'|t('mailcraft'),
+    sent: 'Sent'|t('mailcraft'),
+    failed: 'Failed'|t('mailcraft'),
+} %}
+
+{% block details %}
+    {% if canManage %}
+        <div class="mailcraft-status-actions">
+                {% if status.isResendable() %}
+                    <form method="post">
+                        {{ csrfInput() }}
+                        {{ actionInput('mailcraft/status/resend') }}
+                        {{ redirectInput('mailcraft/status') }}
+                        <input type="hidden" name="id" value="{{ status.id }}">
+                        <button type="submit" class="btn submit">{{ 'Resend'|t('mailcraft') }}</button>
+                    </form>
+                {% endif %}
+                <form method="post" id="status-delete-form" data-confirm="{{ 'Delete this status?'|t('mailcraft') }}">
+                    {{ csrfInput() }}
+                    {{ actionInput('mailcraft/status/delete') }}
+                    {{ redirectInput('mailcraft/status') }}
+                    <input type="hidden" name="id" value="{{ status.id }}">
+                    <button type="submit" class="btn">{{ 'Delete'|t('mailcraft') }}</button>
+                </form>
+        </div>
+    {% endif %}
+
+    <div class="meta read-only mailcraft-status-meta">
+        <div class="data">
+            <h5 class="heading">{{ 'Status'|t('mailcraft') }}</h5>
+            <div class="value">
+                {% set badgeLabel = statusLabels[status.status] ?? status.status %}
+                {% set queueUrl = status.status == 'queued' ? status.getQueueUrl() : null %}
+                {% if queueUrl %}
+                    <a href="{{ queueUrl }}" class="mailcraft-status-badge mailcraft-status-badge--{{ status.status }}">{{ badgeLabel }}</a>
+                {% else %}
+                    <span class="mailcraft-status-badge mailcraft-status-badge--{{ status.status }}">{{ badgeLabel }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Channel'|t('mailcraft') }}</h5>
+            <div class="value">{{ status.getChannelName() }}</div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Recipient'|t('mailcraft') }}</h5>
+            <div class="value">{{ status.recipient }}</div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Template'|t('mailcraft') }}</h5>
+            <div class="value">
+                {% if status.getTemplate() is not null %}
+                    <a href="{{ cpUrl('mailcraft/email-templates/' ~ status.templateId) }}">{{ status.getTemplateLabel() }}</a>
+                {% else %}
+                    <span class="light">{{ status.getTemplateLabel() }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Attempts'|t('mailcraft') }}</h5>
+            <div class="value">{{ status.attempts }}</div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Created'|t('mailcraft') }}</h5>
+            <div class="value">{{ status.dateCreated ? status.dateCreated|datetime('short') : '' }}</div>
+        </div>
+        <div class="data">
+            <h5 class="heading">{{ 'Sent'|t('mailcraft') }}</h5>
+            <div class="value">{{ status.dateSent ? status.dateSent|datetime('short') : '–' }}</div>
+        </div>
+        {% if status.resentFromId %}
+            <div class="data">
+                <h5 class="heading">{{ 'Resent from'|t('mailcraft') }}</h5>
+                <div class="value"><a href="{{ cpUrl('mailcraft/status/' ~ status.resentFromId) }}">#{{ status.resentFromId }}</a></div>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if canManage %}
+{% js %}
+$('#status-delete-form').on('submit', function(ev) {
+    if (!window.confirm(String($(this).data('confirm')))) {
+        ev.preventDefault();
+    }
+});
+{% endjs %}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+    {% if status.error %}
+        <h2>{{ 'Error'|t('mailcraft') }}</h2>
+        <pre class="error">{{ status.error }}</pre>
+    {% endif %}
+
+    <h2>{{ 'Payload'|t('mailcraft') }}</h2>
+    {% if payloadFields|length %}
+        <table class="data">
+            <tbody>
+                {% for key, value in payloadFields %}
+                    <tr>
+                        <th scope="row">{{ key }}</th>
+                        <td>{{ value }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="light">{{ 'None'|t('mailcraft') }}</p>
+    {% endif %}
+
+    {% if body is not null %}
+        <h2>{{ 'Body'|t('mailcraft') }}</h2>
+        {% if bodyHtml %}
+            <iframe sandbox="" srcdoc="{{ bodyHtml|e('html_attr') }}" class="mailcraft-status-body" title="{{ 'Body'|t('mailcraft') }}"></iframe>
+        {% else %}
+            <pre>{{ body }}</pre>
+        {% endif %}
+    {% endif %}
+{% endblock %}

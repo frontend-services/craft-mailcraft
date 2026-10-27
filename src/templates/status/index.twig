@@ -1,0 +1,200 @@
+{% extends '_layouts/cp' %}
+{% import '_includes/forms' as forms %}
+
+{% do view.registerAssetBundle('frontendservices\\mailcraft\\assetbundles\\mailcraft\\MailCraftAsset') %}
+
+{% set title = 'Status'|t('mailcraft') %}
+{% set selectedSubnavItem = 'status' %}
+
+{% block content %}
+    {# Filters #}
+    <form method="get" action="{{ filterAction }}" class="flex mailcraft-status-filters">
+        {% for name, value in filterHidden %}
+            <input type="hidden" name="{{ name }}" value="{{ value }}">
+        {% endfor %}
+        {{ forms.selectField({
+            label: 'Channel'|t('mailcraft'),
+            name: 'channel',
+            options: { '': 'All'|t('mailcraft') }|merge(channelOptions),
+            value: filters.channel,
+        }) }}
+        {{ forms.selectField({
+            label: 'Status'|t('mailcraft'),
+            name: 'status',
+            options: { '': 'All'|t('mailcraft') }|merge(statusOptions),
+            value: filters.status,
+        }) }}
+        {{ forms.textField({
+            label: 'Search'|t('mailcraft'),
+            name: 'search',
+            value: filters.search,
+            placeholder: 'Subject or recipient'|t('mailcraft'),
+        }) }}
+        <div class="field">
+            <button type="submit" class="btn">{{ 'Filter'|t('mailcraft') }}</button>
+        </div>
+    </form>
+
+    {% if statuses|length %}
+        {% if canManage %}
+            <form method="post" id="status-bulk">
+                {{ csrfInput() }}
+                <input type="hidden" name="action" value="" id="status-bulk-action">
+                {{ redirectInput(craft.app.request.url) }}
+                <div class="flex mailcraft-status-bulk">
+                    <button type="button" class="btn" id="status-bulk-resend" disabled
+                            data-label="{{ 'Resend selected'|t('mailcraft') }}">{{ 'Resend selected'|t('mailcraft') }}</button>
+                    <button type="button" class="btn" id="status-bulk-delete" disabled
+                            data-label="{{ 'Delete selected'|t('mailcraft') }}"
+                            data-confirm="{{ 'Delete {n} statuses?'|t('mailcraft') }}">{{ 'Delete selected'|t('mailcraft') }}</button>
+                </div>
+        {% endif %}
+
+        <table class="data fullwidth mailcraft-status-table">
+            <thead>
+                <tr>
+                    {% if canManage %}
+                        <th class="checkbox-cell">
+                            <input type="checkbox" class="checkbox" id="status-select-all" aria-label="{{ 'Select all'|t('mailcraft') }}">
+                            <label for="status-select-all"></label>
+                        </th>
+                    {% endif %}
+                    <th scope="col">{{ 'Date'|t('mailcraft') }}</th>
+                    <th scope="col">{{ 'Channel'|t('mailcraft') }}</th>
+                    <th scope="col">{{ 'Subject'|t('mailcraft') }}</th>
+                    <th scope="col">{{ 'Recipient'|t('mailcraft') }}</th>
+                    <th scope="col">{{ 'Template'|t('mailcraft') }}</th>
+                    <th scope="col">{{ 'Status'|t('mailcraft') }}</th>
+                    {% if canManage %}
+                        <th scope="col"><span class="visually-hidden">{{ 'Actions'|t('mailcraft') }}</span></th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in statuses %}
+                    <tr>
+                        {% if canManage %}
+                            <td class="checkbox-cell">
+                                <input type="checkbox" name="ids[]" value="{{ s.id }}" class="checkbox status-row-checkbox" id="status-{{ s.id }}" aria-label="{{ 'Select'|t('mailcraft') }}">
+                                <label for="status-{{ s.id }}"></label>
+                            </td>
+                        {% endif %}
+                        <td>
+                            {% if s.dateCreated %}
+                                <span title="{{ s.dateCreated|datetime('short') }}">{{ s.dateCreated|timestamp }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ s.getChannelName() }}</td>
+                        <td><a href="{{ cpUrl('mailcraft/status/' ~ s.id) }}">{{ s.subject ?: '(no subject)'|t('mailcraft') }}</a></td>
+                        <td>{{ s.recipient }}</td>
+                        <td>
+                            {% if s.getTemplate() is not null %}
+                                <a href="{{ cpUrl('mailcraft/email-templates/' ~ s.templateId) }}">{{ s.getTemplateLabel() }}</a>
+                            {% else %}
+                                <span class="light">{{ s.getTemplateLabel() }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set badgeLabel = statusOptions[s.status] ?? s.status %}
+                            {% if s.status == 'queued' %}
+                                {% set queueUrl = s.getQueueUrl() %}
+                                {% if queueUrl %}
+                                    <a href="{{ queueUrl }}" class="mailcraft-status-badge mailcraft-status-badge--{{ s.status }}">{{ badgeLabel }}</a>
+                                {% else %}
+                                    <span class="mailcraft-status-badge mailcraft-status-badge--{{ s.status }}">{{ badgeLabel }}</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="mailcraft-status-badge mailcraft-status-badge--{{ s.status }}">{{ badgeLabel }}</span>
+                            {% endif %}
+                            {% if s.status == 'sent' and s.dateSent %}
+                                <span class="light">{{ s.dateSent|timestamp }}</span>
+                            {% elseif s.status == 'failed' and s.error %}
+                                <span class="error" title="{{ s.error }}">{{ s.error|slice(0, 80) }}</span>
+                            {% endif %}
+                            {% if s.id in resentIds %}
+                                <span class="light">· {{ 'Resent'|t('mailcraft') }}</span>
+                            {% endif %}
+                        </td>
+                        {% if canManage %}
+                            <td class="thin">
+                                {% if s.isResendable() %}
+                                    {# The row forms live outside the bulk form (forms cannot nest); the button joins them via the form attribute #}
+                                    <button type="submit" class="btn small" form="status-resend-{{ s.id }}">{{ 'Resend'|t('mailcraft') }}</button>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if canManage %}
+            </form>
+
+            {% for s in statuses %}
+                {% if s.isResendable() %}
+                    <form method="post" id="status-resend-{{ s.id }}" class="hidden">
+                        {{ csrfInput() }}
+                        {{ actionInput('mailcraft/status/resend') }}
+                        {{ redirectInput(craft.app.request.url) }}
+                        <input type="hidden" name="id" value="{{ s.id }}">
+                    </form>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+
+        <div class="flex mailcraft-status-pagination">
+            {% if pageInfo.prevUrl %}
+                <a href="{{ pageInfo.prevUrl }}" class="btn">{{ 'Previous'|t('mailcraft') }}</a>
+            {% endif %}
+            <span class="light">{{ '{first}–{last} of {total}'|t('mailcraft', { first: pageInfo.first, last: pageInfo.last, total: pageInfo.total }) }}</span>
+            {% if pageInfo.nextUrl %}
+                <a href="{{ pageInfo.nextUrl }}" class="btn">{{ 'Next'|t('mailcraft') }}</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <p class="zilch">{{ 'No statuses recorded yet.'|t('mailcraft') }}</p>
+    {% endif %}
+
+    {% if canManage and statuses|length %}
+{% js %}
+(function($) {
+    var $form = $('#status-bulk'),
+        $all = $('#status-select-all'),
+        $rows = $form.find('.status-row-checkbox'),
+        $resend = $('#status-bulk-resend'),
+        $delete = $('#status-bulk-delete'),
+        $action = $('#status-bulk-action');
+
+    function update() {
+        var n = $rows.filter(':checked').length;
+        $resend.prop('disabled', n === 0).text($resend.data('label') + (n ? ' (' + n + ')' : ''));
+        $delete.prop('disabled', n === 0).text($delete.data('label') + (n ? ' (' + n + ')' : ''));
+        $all.prop('checked', n > 0 && n === $rows.length);
+    }
+
+    $all.on('change', function() {
+        $rows.prop('checked', $all.prop('checked'));
+        update();
+    });
+    $rows.on('change', update);
+
+    $resend.on('click', function() {
+        $action.val('mailcraft/status/resend');
+        $form.trigger('submit');
+    });
+
+    $delete.on('click', function() {
+        var n = $rows.filter(':checked').length;
+        if (!window.confirm(String($delete.data('confirm')).replace('{n}', n))) {
+            return;
+        }
+        $action.val('mailcraft/status/delete');
+        $form.trigger('submit');
+    });
+
+    update();
+})(jQuery);
+{% endjs %}
+    {% endif %}
+{% endblock %}
