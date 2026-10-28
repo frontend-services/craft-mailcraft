@@ -69,5 +69,4 @@ We're actively developing MailCraft and welcome community input:
 ## Roadmap
 
 - More Event Types
-- Twig variable suggestions
 - Private messaging system (currently in development)

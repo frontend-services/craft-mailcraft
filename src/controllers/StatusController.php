@@ -42,6 +42,10 @@ class StatusController extends Controller
         $channel = trim((string)$this->request->getQueryParam('channel', ''));
         $status = trim((string)$this->request->getQueryParam('status', ''));
         $search = trim((string)$this->request->getQueryParam('search', ''));
+        $sort = (string)$this->request->getQueryParam('sort', StatusService::SORT_CREATED);
+        if (!in_array($sort, [StatusService::SORT_CREATED, StatusService::SORT_SENT], true)) {
+            $sort = StatusService::SORT_CREATED;
+        }
         $page = max(1, (int)$this->request->getQueryParam('page', 1));
         $limit = 50;
 
@@ -55,6 +59,7 @@ class StatusController extends Controller
         if ($search !== '') {
             $criteria['search'] = $search;
         }
+        $criteria['sort'] = $sort;
 
         $total = $statusService->count($criteria);
         $lastPage = max(1, (int)ceil($total / $limit));
@@ -81,6 +86,7 @@ class StatusController extends Controller
             'channel' => $channel,
             'status' => $status,
             'search' => $search,
+            'sort' => $sort !== StatusService::SORT_CREATED ? $sort : '',
         ], static fn($value) => $value !== '');
 
         $pageInfo = [
@@ -108,8 +114,13 @@ class StatusController extends Controller
                 StatusService::STATUS_QUEUED => Craft::t('mailcraft', 'Queued'),
                 StatusService::STATUS_SENT => Craft::t('mailcraft', 'Sent'),
                 StatusService::STATUS_FAILED => Craft::t('mailcraft', 'Failed'),
+                StatusService::STATUS_CANCELLED => Craft::t('mailcraft', 'Cancelled'),
             ],
-            'filters' => ['channel' => $channel, 'status' => $status, 'search' => $search],
+            'filters' => ['channel' => $channel, 'status' => $status, 'search' => $search, 'sort' => $sort],
+            'sortOptions' => [
+                StatusService::SORT_CREATED => Craft::t('mailcraft', 'Date created'),
+                StatusService::SORT_SENT => Craft::t('mailcraft', 'Date sent'),
+            ],
             'filterAction' => $filterAction,
             'filterHidden' => $filterHidden,
             'pageInfo' => $pageInfo,
@@ -186,6 +197,41 @@ class StatusController extends Controller
 
         if ($result['resent'] > 0) {
             $this->setSuccessFlash(Craft::t('mailcraft', '{n} resent.', ['n' => $result['resent']]));
+        }
+
+        if (!empty($result['skipped'])) {
+            $reasons = [];
+            foreach ($result['skipped'] as $id => $reason) {
+                $reasons[] = '#' . $id . ': ' . $reason;
+            }
+            $this->setFailFlash(Craft::t('mailcraft', 'Skipped {reasons}', ['reasons' => implode('; ', $reasons)]));
+        }
+
+        return $this->redirectToPostedUrl(null, 'mailcraft/status');
+    }
+
+    /**
+     * Cancels the posted queued statuses: releases their jobs so nothing is sent.
+     *
+     * @throws BadRequestHttpException
+     * @throws ForbiddenHttpException
+     * @throws MethodNotAllowedHttpException
+     */
+    public function actionCancel(): Response
+    {
+        $this->requirePostRequest();
+        $this->requirePermission('mailcraft:manageStatus');
+
+        $ids = $this->idsFromRequest();
+        if ($ids === []) {
+            $this->setFailFlash(Craft::t('mailcraft', 'No statuses selected.'));
+            return $this->redirectToPostedUrl(null, 'mailcraft/status');
+        }
+
+        $result = MailCraft::getInstance()->statusService->cancel($ids);
+
+        if ($result['cancelled'] > 0) {
+            $this->setSuccessFlash(Craft::t('mailcraft', '{n} cancelled.', ['n' => $result['cancelled']]));
         }
 
         if (!empty($result['skipped'])) {

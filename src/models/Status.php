@@ -36,6 +36,9 @@ class Status extends Model
     public int $attempts = 0;
     public ?string $jobId = null;
     public ?int $resentFromId = null;
+    /**
+     * When the delivery is due (queued, failed, cancelled) or was made (sent).
+     */
     public ?DateTime $dateSent = null;
     public ?DateTime $dateCreated = null;
     public ?DateTime $dateUpdated = null;
@@ -134,6 +137,14 @@ class Status extends Model
     public function isResendable(): bool
     {
         return $this->getChannel() !== null && $this->status !== StatusService::STATUS_QUEUED;
+    }
+
+    /**
+     * Whether this delivery is still waiting in the queue and can be cancelled.
+     */
+    public function isCancellable(): bool
+    {
+        return $this->status === StatusService::STATUS_QUEUED;
     }
 
     /**

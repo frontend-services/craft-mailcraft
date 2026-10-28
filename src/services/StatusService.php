@@ -8,6 +8,7 @@ use craft\db\Query;
 use craft\helpers\Db;
 use craft\helpers\Json;
 use DateTime;
+use yii\db\Expression;
 use frontendservices\mailcraft\base\AbstractChannel;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\jobs\SendEmailJob;
@@ -26,6 +27,7 @@ class StatusService extends Component
     public const STATUS_QUEUED = 'queued';
     public const STATUS_SENT = 'sent';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_CANCELLED = 'cancelled';
 
     /**
      * Whether deliveries through the given channel are logged.
@@ -39,9 +41,11 @@ class StatusService extends Component
      * Logs one delivery payload.
      *
      * @param array $content `['subject' => string, 'body' => string]`, already rendered
+     * @param DateTime|null $dateSent When the delivery is due (now + delay); null means now.
+     * markSent() replaces it with the actual time.
      * @return int|null The new row's id, or null when the channel is not recording or the write failed
      */
-    public function record(AbstractChannel $channel, EmailTemplate $template, array $content, array $payload, string $status = self::STATUS_QUEUED, ?string $error = null): ?int
+    public function record(AbstractChannel $channel, EmailTemplate $template, array $content, array $payload, string $status = self::STATUS_QUEUED, ?string $error = null, ?DateTime $dateSent = null): ?int
     {
         try {
             if (!$this->isRecording($channel->getHandle())) {
@@ -50,7 +54,7 @@ class StatusService extends Component
 
             // a savepoint when the host is already in a transaction, so a failed write
             // cannot poison it (Postgres)
-            return Craft::$app->getDb()->transaction(function() use ($channel, $template, $content, $payload, $status, $error) {
+            return Craft::$app->getDb()->transaction(function() use ($channel, $template, $content, $payload, $status, $error, $dateSent) {
                 $record = new StatusRecord();
                 $record->templateId = $template->id;
                 $record->templateTitle = $template->title;
@@ -61,6 +65,7 @@ class StatusService extends Component
                 $record->payload = Json::encode($payload);
                 $record->error = $error;
                 $record->attempts = 0;
+                $record->dateSent = Db::prepareDateForDb($dateSent ?? new DateTime());
 
                 if (!$record->save(false)) {
                     return null;
@@ -170,9 +175,11 @@ class StatusService extends Component
                     return;
                 }
 
+                if ($record->status === self::STATUS_QUEUED) {
+                    $record->attempts = (int)$record->attempts + 1;
+                }
                 $record->status = self::STATUS_FAILED;
                 $record->error = $error;
-                $record->attempts = (int)$record->attempts + 1;
                 $record->save(false);
             });
         } catch (\Throwable $e) {
@@ -190,16 +197,35 @@ class StatusService extends Component
         return $record !== null ? Status::fromRecord($record) : null;
     }
 
+    public const SORT_CREATED = 'dateCreated';
+    public const SORT_SENT = 'dateSent';
+
     /**
      * Returns rows matching the criteria, newest first.
      *
-     * @param array $criteria `channel`, `status` and/or `search` (subject and recipient)
+     * @param array $criteria `channel`, `status` and/or `search` (subject and recipient);
+     * `sort` is `dateCreated` (default) or `dateSent` (the due time for rows not sent yet,
+     * the actual time for sent ones), latest first, so deliveries scheduled furthest ahead
+     * come first
      * @return Status[]
      */
     public function find(array $criteria = [], int $limit = 50, int $offset = 0): array
     {
+        if (($criteria['sort'] ?? null) === self::SORT_SENT) {
+            // rows recorded before 1.5.0's due-time semantics may have no dateSent; keep them
+            // last on MySQL and Postgres alike (a bare `dateSent DESC` differs between the two)
+            $orderBy = [
+                new Expression('[[dateSent]] IS NULL ASC'),
+                'dateSent' => SORT_DESC,
+                'dateCreated' => SORT_DESC,
+                'id' => SORT_DESC,
+            ];
+        } else {
+            $orderBy = ['dateCreated' => SORT_DESC, 'id' => SORT_DESC];
+        }
+
         $query = StatusRecord::find()
-            ->orderBy(['dateCreated' => SORT_DESC, 'id' => SORT_DESC])
+            ->orderBy($orderBy)
             ->limit($limit)
             ->offset($offset);
         $this->applyCriteria($query, $criteria);
@@ -311,7 +337,7 @@ class StatusService extends Component
                     $record->attempts = 0;
                     $record->jobId = null;
                     $record->resentFromId = $status->id;
-                    $record->dateSent = null;
+                    $record->dateSent = Db::prepareDateForDb(new DateTime());
                     $record->save(false);
 
                     return (int)$record->id;
@@ -341,6 +367,89 @@ class StatusService extends Component
     }
 
     /**
+     * Cancels pending deliveries: releases each row's queue job and marks the row cancelled
+     * with "Cancelled by <user>" as the reason. Rows that are not queued, whose job is already running,
+     * or whose job has already finished are skipped with a reason.
+     *
+     * @param int[] $ids
+     * @return array{cancelled: int, skipped: array<int, string>}
+     */
+    public function cancel(array $ids): array
+    {
+        $cancelled = 0;
+        $skipped = [];
+        $queue = Craft::$app->getQueue();
+
+        $reason = Craft::t('mailcraft', 'Cancelled');
+        try {
+            // no user component on console requests
+            $identity = Craft::$app->getUser()->getIdentity();
+            if ($identity !== null) {
+                $reason = Craft::t('mailcraft', 'Cancelled by {user}', ['user' => $identity->username ?: $identity->email]);
+            }
+        } catch (\Throwable) {
+        }
+
+        foreach ($ids as $id) {
+            $id = (int)$id;
+
+            try {
+                $status = $this->getById($id);
+                if ($status === null) {
+                    $skipped[$id] = Craft::t('mailcraft', 'not found');
+                    continue;
+                }
+
+                if ($status->status !== self::STATUS_QUEUED) {
+                    $skipped[$id] = Craft::t('mailcraft', 'not queued');
+                    continue;
+                }
+
+                if ($status->jobId) {
+                    if (!method_exists($queue, 'release')) {
+                        $skipped[$id] = Craft::t('mailcraft', 'the queue driver cannot release jobs');
+                        continue;
+                    }
+
+                    $jobStatus = $queue->status($status->jobId);
+                    if ($jobStatus === \yii\queue\Queue::STATUS_RESERVED) {
+                        $skipped[$id] = Craft::t('mailcraft', 'already being sent');
+                        continue;
+                    }
+                    if ($jobStatus === \yii\queue\Queue::STATUS_DONE) {
+                        $skipped[$id] = Craft::t('mailcraft', 'its job has already finished');
+                        continue;
+                    }
+
+                    $queue->release((string)$status->jobId);
+                }
+
+                // only while still queued, so a worker that finished meanwhile is not overwritten
+                $updated = Craft::$app->getDb()->transaction(function() use ($id, $reason) {
+                    return Db::update(StatusRecord::tableName(), [
+                        'status' => self::STATUS_CANCELLED,
+                        'error' => $reason,
+                    ], [
+                        'id' => $id,
+                        'status' => self::STATUS_QUEUED,
+                    ]);
+                });
+
+                if ($updated > 0) {
+                    $cancelled++;
+                } else {
+                    $skipped[$id] = Craft::t('mailcraft', 'not queued');
+                }
+            } catch (\Throwable $e) {
+                Craft::warning('MailCraft status: ' . $e->getMessage(), __METHOD__);
+                $skipped[$id] = $e->getMessage();
+            }
+        }
+
+        return ['cancelled' => $cancelled, 'skipped' => $skipped];
+    }
+
+    /**
      * Deletes rows from the log. Never touches the queue.
      *
      * @param int[] $ids
@@ -364,7 +473,7 @@ class StatusService extends Component
     }
 
     /**
-     * Deletes `sent` and `failed` rows older than the retention setting. `queued` rows are
+     * Deletes `sent`, `failed` and `cancelled` rows older than the retention setting. `queued` rows are
      * never purged: their job may still run.
      *
      * @return int Rows deleted
@@ -380,7 +489,7 @@ class StatusService extends Component
             return (int)Craft::$app->getDb()->transaction(function() use ($days) {
                 return Db::delete(StatusRecord::tableName(), [
                     'and',
-                    ['status' => [self::STATUS_SENT, self::STATUS_FAILED]],
+                    ['status' => [self::STATUS_SENT, self::STATUS_FAILED, self::STATUS_CANCELLED]],
                     ['<', 'dateUpdated', Db::prepareDateForDb(new DateTime("-{$days} days"))],
                 ]);
             });

@@ -11,6 +11,7 @@
     queued: 'Queued'|t('mailcraft'),
     sent: 'Sent'|t('mailcraft'),
     failed: 'Failed'|t('mailcraft'),
+    cancelled: 'Cancelled'|t('mailcraft'),
 } %}
 
 {% block details %}
@@ -25,7 +26,16 @@
                         <button type="submit" class="btn submit">{{ 'Resend'|t('mailcraft') }}</button>
                     </form>
                 {% endif %}
-                <form method="post" id="status-delete-form" data-confirm="{{ 'Delete this status?'|t('mailcraft') }}">
+                {% if status.isCancellable() %}
+                    <form method="post" class="mailcraft-confirm" data-confirm="{{ 'Cancel this delivery? The queued job is removed and nothing is sent.'|t('mailcraft') }}">
+                        {{ csrfInput() }}
+                        {{ actionInput('mailcraft/status/cancel') }}
+                        {{ redirectInput('mailcraft/status/' ~ status.id) }}
+                        <input type="hidden" name="id" value="{{ status.id }}">
+                        <button type="submit" class="btn">{{ 'Cancel'|t('mailcraft') }}</button>
+                    </form>
+                {% endif %}
+                <form method="post" class="mailcraft-confirm" data-confirm="{{ 'Delete this status?'|t('mailcraft') }}">
                     {{ csrfInput() }}
                     {{ actionInput('mailcraft/status/delete') }}
                     {{ redirectInput('mailcraft/status') }}
@@ -75,7 +85,7 @@
             <div class="value">{{ status.dateCreated ? status.dateCreated|datetime('short') : '' }}</div>
         </div>
         <div class="data">
-            <h5 class="heading">{{ 'Sent'|t('mailcraft') }}</h5>
+            <h5 class="heading">{{ (status.status == 'sent' ? 'Sent' : 'Due')|t('mailcraft') }}</h5>
             <div class="value">{{ status.dateSent ? status.dateSent|datetime('short') : '–' }}</div>
         </div>
         {% if status.resentFromId %}
@@ -88,7 +98,7 @@
 
     {% if canManage %}
 {% js %}
-$('#status-delete-form').on('submit', function(ev) {
+$('.mailcraft-confirm').on('submit', function(ev) {
     if (!window.confirm(String($(this).data('confirm')))) {
         ev.preventDefault();
     }
@@ -98,7 +108,9 @@ $('#status-delete-form').on('submit', function(ev) {
 {% endblock %}
 
 {% block content %}
-    {% if status.error %}
+    {% if status.status == 'cancelled' %}
+        <p class="light">{{ status.error ?: 'Cancelled'|t('mailcraft') }}</p>
+    {% elseif status.error %}
         <h2>{{ 'Error'|t('mailcraft') }}</h2>
         <pre class="error">{{ status.error }}</pre>
     {% endif %}

@@ -206,8 +206,15 @@
 }
 
 .mailcraft-status-badge--queued {
-    background: var(--gray-100);
-    color: var(--text-color);
+    background: var(--gray-500, #7a8a99);
+    color: #fff;
+}
+
+.mailcraft-status-badge--cancelled {
+    background: transparent;
+    border: 1px solid var(--gray-400, #9aa5b1);
+    color: var(--gray-700, #3f4d5a);
+    padding: 1px 7px;
 }
 
 .mailcraft-status-badge--sent {

@@ -12,6 +12,7 @@ use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\jobs\SendEmailJob;
 use frontendservices\mailcraft\MailCraft;
+use frontendservices\mailcraft\services\StatusService;
 use Twig\Error\LoaderError;
 use Twig\Error\SyntaxError;
 use yii\base\InvalidConfigException;
@@ -297,10 +298,11 @@ class EmailService extends Component
         $sendDirectly = $delay <= 0 && MailCraft::getInstance()->getSettings()->sendInstantEmailsDirectly;
         $sendTime = time() + $delay;
         $statusService = MailCraft::getInstance()->statusService;
+        $dueAt = (new \DateTime())->setTimestamp($sendTime);
 
         foreach ($channels as $channel) {
             foreach ($channel->buildDeliveries($template, $content, $variables) as $payload) {
-                $statusId = $statusService->record($channel, $template, $content, $payload);
+                $statusId = $statusService->record($channel, $template, $content, $payload, StatusService::STATUS_QUEUED, null, $dueAt);
 
                 if ($sendDirectly) {
                     if ($channel->deliver($payload)) {

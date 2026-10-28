@@ -30,6 +30,12 @@
             value: filters.search,
             placeholder: 'Subject or recipient'|t('mailcraft'),
         }) }}
+        {{ forms.selectField({
+            label: 'Sort by'|t('mailcraft'),
+            name: 'sort',
+            options: sortOptions,
+            value: filters.sort,
+        }) }}
         <div class="field">
             <button type="submit" class="btn">{{ 'Filter'|t('mailcraft') }}</button>
         </div>
@@ -44,6 +50,9 @@
                 <div class="flex mailcraft-status-bulk">
                     <button type="button" class="btn" id="status-bulk-resend" disabled
                             data-label="{{ 'Resend selected'|t('mailcraft') }}">{{ 'Resend selected'|t('mailcraft') }}</button>
+                    <button type="button" class="btn" id="status-bulk-cancel" disabled
+                            data-label="{{ 'Cancel selected'|t('mailcraft') }}"
+                            data-confirm="{{ 'Cancel {n} queued deliveries? Their jobs are removed and nothing is sent.'|t('mailcraft') }}">{{ 'Cancel selected'|t('mailcraft') }}</button>
                     <button type="button" class="btn" id="status-bulk-delete" disabled
                             data-label="{{ 'Delete selected'|t('mailcraft') }}"
                             data-confirm="{{ 'Delete {n} statuses?'|t('mailcraft') }}">{{ 'Delete selected'|t('mailcraft') }}</button>
@@ -59,7 +68,8 @@
                             <label for="status-select-all"></label>
                         </th>
                     {% endif %}
-                    <th scope="col">{{ 'Date'|t('mailcraft') }}</th>
+                    <th scope="col">{{ 'Created'|t('mailcraft') }}</th>
+                    <th scope="col" title="{{ 'Due time for queued, failed and cancelled rows; delivery time for sent ones'|t('mailcraft') }}">{{ 'Sent'|t('mailcraft') }}</th>
                     <th scope="col">{{ 'Channel'|t('mailcraft') }}</th>
                     <th scope="col">{{ 'Subject'|t('mailcraft') }}</th>
                     <th scope="col">{{ 'Recipient'|t('mailcraft') }}</th>
@@ -84,6 +94,15 @@
                                 <span title="{{ s.dateCreated|datetime('short') }}">{{ s.dateCreated|timestamp }}</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if s.dateSent and s.status == 'sent' %}
+                                <span title="{{ s.dateSent|datetime('short') }}">{{ s.dateSent|timestamp }}</span>
+                            {% elseif s.dateSent %}
+                                <span class="light" title="{{ 'Due'|t('mailcraft') }}: {{ s.dateSent|datetime('short') }}">{{ s.dateSent|timestamp }}</span>
+                            {% else %}
+                                <span class="light">–</span>
+                            {% endif %}
+                        </td>
                         <td>{{ s.getChannelName() }}</td>
                         <td><a href="{{ cpUrl('mailcraft/status/' ~ s.id) }}">{{ s.subject ?: '(no subject)'|t('mailcraft') }}</a></td>
                         <td>{{ s.recipient }}</td>
@@ -106,10 +125,10 @@
                             {% else %}
                                 <span class="mailcraft-status-badge mailcraft-status-badge--{{ s.status }}">{{ badgeLabel }}</span>
                             {% endif %}
-                            {% if s.status == 'sent' and s.dateSent %}
-                                <span class="light">{{ s.dateSent|timestamp }}</span>
-                            {% elseif s.status == 'failed' and s.error %}
+                            {% if s.status == 'failed' and s.error %}
                                 <span class="error" title="{{ s.error }}">{{ s.error|slice(0, 80) }}</span>
+                            {% elseif s.status == 'cancelled' and s.error %}
+                                <span class="light">{{ s.error }}</span>
                             {% endif %}
                             {% if s.id in resentIds %}
                                 <span class="light">· {{ 'Resent'|t('mailcraft') }}</span>
@@ -117,9 +136,11 @@
                         </td>
                         {% if canManage %}
                             <td class="thin">
+                                {# The row forms live outside the bulk form (forms cannot nest); the buttons join them via the form attribute #}
                                 {% if s.isResendable() %}
-                                    {# The row forms live outside the bulk form (forms cannot nest); the button joins them via the form attribute #}
                                     <button type="submit" class="btn small" form="status-resend-{{ s.id }}">{{ 'Resend'|t('mailcraft') }}</button>
+                                {% elseif s.isCancellable() %}
+                                    <button type="submit" class="btn small" form="status-cancel-{{ s.id }}">{{ 'Cancel'|t('mailcraft') }}</button>
                                 {% endif %}
                             </td>
                         {% endif %}
@@ -136,6 +157,13 @@
                     <form method="post" id="status-resend-{{ s.id }}" class="hidden">
                         {{ csrfInput() }}
                         {{ actionInput('mailcraft/status/resend') }}
+                        {{ redirectInput(craft.app.request.url) }}
+                        <input type="hidden" name="id" value="{{ s.id }}">
+                    </form>
+                {% elseif s.isCancellable() %}
+                    <form method="post" id="status-cancel-{{ s.id }}" class="hidden mailcraft-confirm" data-confirm="{{ 'Cancel this delivery? The queued job is removed and nothing is sent.'|t('mailcraft') }}">
+                        {{ csrfInput() }}
+                        {{ actionInput('mailcraft/status/cancel') }}
                         {{ redirectInput(craft.app.request.url) }}
                         <input type="hidden" name="id" value="{{ s.id }}">
                     </form>
@@ -163,12 +191,14 @@
         $all = $('#status-select-all'),
         $rows = $form.find('.status-row-checkbox'),
         $resend = $('#status-bulk-resend'),
+        $cancel = $('#status-bulk-cancel'),
         $delete = $('#status-bulk-delete'),
         $action = $('#status-bulk-action');
 
     function update() {
         var n = $rows.filter(':checked').length;
         $resend.prop('disabled', n === 0).text($resend.data('label') + (n ? ' (' + n + ')' : ''));
+        $cancel.prop('disabled', n === 0).text($cancel.data('label') + (n ? ' (' + n + ')' : ''));
         $delete.prop('disabled', n === 0).text($delete.data('label') + (n ? ' (' + n + ')' : ''));
         $all.prop('checked', n > 0 && n === $rows.length);
     }
@@ -182,6 +212,21 @@
     $resend.on('click', function() {
         $action.val('mailcraft/status/resend');
         $form.trigger('submit');
+    });
+
+    $cancel.on('click', function() {
+        var n = $rows.filter(':checked').length;
+        if (!window.confirm(String($cancel.data('confirm')).replace('{n}', n))) {
+            return;
+        }
+        $action.val('mailcraft/status/cancel');
+        $form.trigger('submit');
+    });
+
+    $('.mailcraft-confirm').on('submit', function(ev) {
+        if (!window.confirm(String($(this).data('confirm')))) {
+            ev.preventDefault();
+        }
     });
 
     $delete.on('click', function() {
