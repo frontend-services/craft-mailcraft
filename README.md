@@ -9,8 +9,7 @@ panel - no developer assistance required. Install once, and let your clients han
 
 ## What's New 🚀
 
-- **Compatible with V5 CKEditor plugin version**: MailCraft now works seamlessly with the latest CKEditor plugin for Craft CMS.
-- **Full CKEditor toolbar builder**: Choose from all available CKEditor toolbar options when configuring your email templates.
+- **Statuses**: List all sent notifications and their delivery status in the admin interface
 
 ## Key Features
 
@@ -52,13 +51,13 @@ MailCraft supports various event types to help you automate your notifications:
 plugins is available. Optionally trigger only on critical updates
 - **Failed Queue Job** - Notify admins when a queue job fails
 
-### Missing an Event? ⚠️
+### Missing an Event?
 
 If you need a specific event that isn't currently supported, please [open an issue on GitHub](https://github.com/frontend-services/craft-mailcraft/issues).
 
 ## Custom Email Design
 
-Want full control over the look and feel of your emails? Use our **[Email Templates](https://plugins.craftcms.com/email-templates)** plugin alongside MailCraft to design beautiful, reusable email layouts — no coding required.
+Want more control over the look and feel of your emails? Use our **[Email Templates](https://plugins.craftcms.com/email-templates)** plugin alongside MailCraft to design beautiful, reusable email layouts — no coding required.
 
 ## Feature Requests & Contributions
 
@@ -71,4 +70,4 @@ We're actively developing MailCraft and welcome community input:
 
 - More Event Types
 - Twig variable suggestions
-- Improved admin UI/UX
+- Private messaging system (currently in development)
