@@ -1,0 +1,34 @@
+{#
+  Single message template
+#}
+{% set isSent = isSent ?? false %}
+<article class="rounded border bg-white p-4 {{ message.pinned ? 'border-amber-400' : 'border-gray-200' }}">
+  <header class="mb-2 text-sm text-gray-500">
+    {% if isSent %}
+      <span>{{ 'To {name}'|t('mailcraft', { name: message.to ? message.to.friendlyName : 'Deleted user'|t('mailcraft') }) }}</span>
+      <span> &middot; {{ message.isRead ? 'Read'|t('mailcraft') : 'Unread'|t('mailcraft') }}</span>
+    {% else %}
+      <span>{{ message.from ? message.from.friendlyName : (message.fromId ? 'Deleted user'|t('mailcraft') : 'System'|t('mailcraft')) }}</span>
+    {% endif %}
+    <span> &middot; {{ message.dateCreated|date('short') }}</span>
+    {% if message.typeLabel %}<span class="ml-2 rounded bg-gray-100 px-2 py-0.5">{{ message.typeLabel }}</span>{% endif %}
+  </header>
+  <h2 class="text-lg font-semibold mb-2">{{ message.subject }}</h2>
+  {# |raw is safe here: content is purified when the message is written. Never output other user input with |raw. #}
+  <div class="prose">{{ message.content|raw }}</div>
+
+  {# Only the recipient marks a message read; for a sent message the action would ignore the id and the auto-submit would loop. #}
+  {% if not isSent and not message.isRead %}
+    <form method="post" id="mark-read-{{ message.id }}">
+      {{ csrfInput() }}
+      {{ actionInput('mailcraft/messages/mark-read') }}
+      {{ redirectInput(craft.app.request.url) }}
+      <input type="hidden" name="id" value="{{ message.id }}">
+      <noscript><button type="submit" class="mt-3 text-sm underline">{{ 'Mark as read'|t('mailcraft') }}</button></noscript>
+    </form>
+    {# Auto-submit, only while unread, so a read message does not post and reload on every view. #}
+    <script>
+      document.getElementById('mark-read-{{ message.id }}').submit();
+    </script>
+  {% endif %}
+</article>

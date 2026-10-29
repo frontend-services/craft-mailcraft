@@ -1,14 +1,16 @@
 # MailCraft for Craft CMS
 
-> **Client friendly email notifications**
+> **Simple email notifications and powerful private messaging system**
 
 MailCraft allows content managers to set up email notifications directly from the Craft CMS control 
 panel - no developer assistance required. Install once, and let your clients handle the rest.
+
 
 ![MailCraft Logo](./assets/screenshot.png)
 
 ## What's New 🚀
 
+- **Private Messages** - Front end private messaging system for Craft CMS, with demo twig templates
 - **Statuses**: List all sent notifications and their delivery status in the admin interface
 
 ## Key Features
@@ -17,7 +19,10 @@ panel - no developer assistance required. Install once, and let your clients han
 - **Event-Driven Triggers**: Configure emails to send automatically based on specific system events
 - **Scheduled Delivery**: Set up delayed emails for follow-ups, reminders, and nurture campaigns
 - **Conditional Logic**: Target specific users or content with powerful filtering options
+- **[Private messages](./private-messaging-guide.md)**: Allow front-end users to send private messages to each others
 - **Zero Code Required**: All configuration happens in the admin interface
+- **Statuses**: See which notifications got sent, resend them, see the reason for delivery failure
+- **Multiple channels**: Send notifications to multiple channels; easily get new private message notification to your email
 
 ## Event Triggers & Notification Types
 

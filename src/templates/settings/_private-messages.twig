@@ -1,0 +1,91 @@
+{% import "_includes/forms" as forms %}
+
+{# @var settings \frontendservices\mailcraft\models\Settings #}
+{# Only rendered while the private message channel is allowed. #}
+
+{% set privateMessageTypeRows = [] %}
+{% for typeLabel, typeValue in settings.privateMessageTypes %}
+    {% set privateMessageTypeRows = privateMessageTypeRows|merge([{ label: typeLabel, value: typeValue }]) %}
+{% endfor %}
+
+{{ forms.editableTableField({
+    label: 'Message types'|t('mailcraft'),
+    instructions: 'Optional labels for the type field, for example "System messages" with the value `system`, or "User message" with the value `user` (the type of frontend sends).'|t('mailcraft'),
+    id: 'privateMessageTypes',
+    name: 'privateMessageTypes',
+    cols: {
+        label: { heading: 'Label'|t('mailcraft'), type: 'singleline' },
+        value: { heading: 'Value'|t('mailcraft'), type: 'singleline', code: true },
+    },
+    rows: privateMessageTypeRows,
+    addRowLabel: 'Add a type'|t('mailcraft'),
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    errors: settings.getErrors('privateMessageTypes'),
+    first: true,
+}) }}
+
+{% set configuredTemplate = settings.privateMessageTemplate is null ? '' : settings.privateMessageTemplate ~ '' %}
+{% set templateCandidates = craft.mailCraft.getPrivateMessageTemplateCandidates() %}
+{% set configuredCandidate = templateCandidates|filter(c => c.handle == configuredTemplate or (c.id ~ '') == configuredTemplate)|first %}
+{% set candidateHandles = templateCandidates|map(c => c.enabled ? "`#{c.handle}`" : "`#{c.handle}` (#{'disabled'|t('mailcraft')})") %}
+{% set templateWarning = null %}
+{% if configuredTemplate != '' and not configuredCandidate %}
+    {% set templateWarning = 'No template on this environment has this handle with the Private message channel enabled. Sending through it fails until one does.'|t('mailcraft') %}
+{% elseif configuredCandidate and not configuredCandidate.enabled %}
+    {% set templateWarning = 'This template is disabled. Sending through it fails until it is enabled.'|t('mailcraft') %}
+{% endif %}
+
+{{ forms.textField({
+    label: 'Template'|t('mailcraft'),
+    instructions: 'Handle of the default template that frontend actions use. Leave empty for the built-in simple message. Sending through a template also sends its other channels, so this option is useful when you want to send email notification when private message gets sent. If the template is missing or disabled, sending fails with a logged warning and nothing falls back to the built-in message.'|t('mailcraft')
+        ~ '<br>' ~ (candidateHandles|length
+            ? 'Templates with a handle and the channel enabled on this environment: {handles}.'|t('mailcraft', { handles: candidateHandles|join(', ') })
+            : 'No template on this environment has a handle and the Private message channel enabled yet; give a template a handle in its sidebar.'|t('mailcraft')),
+    id: 'privateMessageTemplate',
+    name: 'privateMessageTemplate',
+    value: configuredTemplate,
+    class: 'code',
+    placeholder: 'Built-in simple message'|t('mailcraft'),
+    warning: templateWarning,
+    errors: settings.getErrors('privateMessageTemplate'),
+}) }}
+
+<hr>
+<h2>{{ 'Frontend sending'|t('mailcraft') }}</h2>
+
+{{ forms.lightswitchField({
+    label: 'Allow sending from the frontend'|t('mailcraft'),
+    instructions: 'Lets logged-in users send messages through the mailcraft/messages/send action. Otherwise only system can send messages through this channel.'|t('mailcraft'),
+    id: 'allowFrontendSending',
+    name: 'allowFrontendSending',
+    on: settings.allowFrontendSending,
+    errors: settings.getErrors('allowFrontendSending'),
+}) }}
+
+{{ forms.textField({
+    label: 'Frontend sending limit'|t('mailcraft'),
+    instructions: '0 means no limit. Only applies to the frontend action. Messages sent from templates and code are never limited.'|t('mailcraft'),
+    id: 'frontendSendingPerHour',
+    name: 'frontendSendingPerHour',
+    type: 'number',
+    min: 0,
+    unit: 'per user per hour'|t('mailcraft'),
+    size: 5,
+    value: settings.frontendSendingPerHour,
+    errors: settings.getErrors('frontendSendingPerHour'),
+}) }}
+
+{% set frontendType = settings.frontendSendingType ?? '' %}
+{% set frontendTypeHasLabel = frontendType == '' or (frontendType in settings.privateMessageTypes|map(v => v ~ '')) %}
+
+{{ forms.textField({
+    label: 'Frontend message type'|t('mailcraft'),
+    instructions: 'Type on messages sent through the frontend action. A template whose Type field is empty uses this value.'|t('mailcraft'),
+    id: 'frontendSendingType',
+    name: 'frontendSendingType',
+    value: settings.frontendSendingType,
+    warning: not frontendTypeHasLabel ? 'No label for `{type}` yet. Add it to Message types above so your site shows a label instead of the raw value.'|t('mailcraft', { type: frontendType }) : null,
+    errors: settings.getErrors('frontendSendingType'),
+}) }}

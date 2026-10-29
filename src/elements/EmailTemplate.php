@@ -21,6 +21,7 @@ use yii\db\Exception;
  */
 class EmailTemplate extends Element
 {
+    public ?string $handle = null;
     public ?string $subject = null;
     public ?string $event = null;
     public ?int $delay = null;
@@ -83,10 +84,43 @@ class EmailTemplate extends Element
                 $settings = [];
             }
             $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if (array_key_exists('_content', $settings)) {
+                $settings['_content'] = self::normalizeContentOverride($settings['_content']);
+            }
             $normalized[$handle] = $settings;
         }
 
         return $normalized === [] ? self::LEGACY_CHANNELS : $normalized;
+    }
+
+    /**
+     * Turns a channel's `_content` entry (as posted or stored) into
+     * `['overrideContent' => bool, 'subject' => string, 'body' => string]`. The subject is
+     * capped at 255 characters, like the main subject.
+     */
+    public static function normalizeContentOverride(mixed $value): array
+    {
+        if (!is_array($value)) {
+            $value = [];
+        }
+
+        return [
+            'overrideContent' => filter_var($value['overrideContent'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'subject' => is_scalar($value['subject'] ?? null) ? mb_substr((string)$value['subject'], 0, 255) : '',
+            'body' => is_scalar($value['body'] ?? null) ? (string)$value['body'] : '',
+        ];
+    }
+
+    /**
+     * Whether the channel has its content override switched on with a non-blank subject or body.
+     * Says nothing about whether overrides are available (see EmailService::overridesAvailable()).
+     */
+    public function hasContentOverride(string $handle): bool
+    {
+        $override = self::normalizeContentOverride($this->channels[$handle]['_content'] ?? null);
+
+        return $override['overrideContent']
+            && (trim($override['subject']) !== '' || trim($override['body']) !== '');
     }
 
     public function isChannelEnabled(string $handle): bool
@@ -95,12 +129,14 @@ class EmailTemplate extends Element
     }
 
     /**
-     * The channel's per-template settings, without the `enabled` flag.
+     * The channel's per-template settings, without the reserved keys (`enabled`, `_content`).
      */
     public function getChannelSettings(string $handle): array
     {
         $settings = $this->channels[$handle] ?? [];
-        unset($settings['enabled']);
+        foreach (AbstractChannel::RESERVED_KEYS as $key) {
+            unset($settings[$key]);
+        }
 
         return $settings;
     }
@@ -157,19 +193,19 @@ class EmailTemplate extends Element
     }
 
     /**
-     * @inheritdoc
+     * @inheritdoc Templates are not site content; see review item C4.
      */
     public static function isLocalized(): bool
     {
-        return true;
+        return false;
     }
 
     /**
-     * @inheritdoc
+     * @inheritdoc Templates are not site content; see review item C4.
      */
     public static function hasUrls(): bool
     {
-        return true;
+        return false;
     }
 
     /**
@@ -221,17 +257,52 @@ class EmailTemplate extends Element
         $rules[] = ['event', 'in', 'range' => Craft::$app->getModule('mailcraft')->get('eventRegistry')->getAvailableEventsList()];
         $rules[] = ['conditions', 'string'];
         $rules[] = ['channels', 'validateChannels'];
+        $rules[] = ['handle', 'trim'];
+        $rules[] = ['handle', 'string', 'max' => 255];
+        $rules[] = ['handle', 'match', 'pattern' => '/^[a-zA-Z][a-zA-Z0-9_-]*$/', 'message' => Craft::t('mailcraft', 'Handles start with a letter and contain only letters, numbers, dashes and underscores.')];
+        $rules[] = ['handle', 'validateHandle', 'skipOnEmpty' => true];
 
         return $rules;
     }
 
     /**
-     * Lets every enabled, allowed channel validate its own per-template settings.
+     * Rejects a handle that another template already uses (case-insensitive).
+     */
+    public function validateHandle(): void
+    {
+        $query = EmailTemplateRecord::find()
+            ->where(['=', new \yii\db\Expression('LOWER([[handle]])'), mb_strtolower($this->handle)]);
+
+        if ($this->id) {
+            $query->andWhere(['not', ['id' => $this->id]]);
+        }
+
+        if ($query->exists()) {
+            $this->addError('handle', Craft::t('mailcraft', 'Another template already uses this handle.'));
+        }
+    }
+
+    /**
+     * Lets every enabled, allowed channel validate its own per-template settings, and rejects
+     * a content override subject longer than the main subject may be.
      */
     public function validateChannels(): void
     {
         foreach ($this->getEnabledChannels() as $channel) {
             $channel->validateTemplateSettings($this);
+        }
+
+        foreach ($this->channels as $handle => $settings) {
+            if (!filter_var($settings['_content']['overrideContent'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                continue;
+            }
+            $subject = $settings['_content']['subject'] ?? null;
+            if (is_string($subject) && mb_strlen($subject) > 255) {
+                $this->addError("channels.$handle._content.subject", Craft::t('yii', '{attribute} should contain at most {max, number} {max, plural, one{character} other{characters}}.', [
+                    'attribute' => $this->getAttributeLabel('subject'),
+                    'max' => 255,
+                ]));
+            }
         }
     }
 
@@ -252,6 +323,7 @@ class EmailTemplate extends Element
             $record->id = $this->id;
         }
 
+        $record->handle = $this->handle ?: null;
         $record->subject = $this->subject;
         $record->event = $this->event;
         $record->delay = $this->delay;
@@ -302,6 +374,7 @@ class EmailTemplate extends Element
     {
         return [
             'title' => ['label' => Craft::t('mailcraft', 'Title')],
+            'handle' => ['label' => Craft::t('mailcraft', 'Handle')],
             'subject' => ['label' => Craft::t('mailcraft', 'Subject')],
             'event' => ['label' => Craft::t('mailcraft', 'Event')],
             'to' => ['label' => Craft::t('mailcraft', 'To')],
@@ -358,7 +431,7 @@ class EmailTemplate extends Element
      */
     protected static function defineSearchableAttributes(): array
     {
-        return ['title', 'subject', 'to', 'toName'];
+        return ['title', 'handle', 'subject', 'to', 'toName'];
     }
 
     /**

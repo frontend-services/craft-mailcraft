@@ -13,11 +13,6 @@
         { seconds: 1, one: 'second', many: 'seconds' },
     ];
 
-    /**
-     * Behaviour for the email template edit page: tabs are Craft's own, this adds the
-     * delay picker, the dynamic condition selects, the variables panel, quick picks,
-     * example loading, the sidebar summary, preview and test sending.
-     */
     Craft.MailCraftEditor = Garnish.Base.extend({
         settings: null,
         $form: null,
@@ -25,6 +20,7 @@
         $condition1: null,
         $condition2: null,
         previewModal: null,
+        previewChannel: '',
 
         init: function (settings) {
             this.settings = $.extend({
@@ -37,6 +33,7 @@
                 examples: {},
                 conditions: {},
                 currentUserEmail: '',
+                currentUserId: null,
                 systemFromEmail: '',
                 systemFromName: '',
             }, settings || {});
@@ -53,8 +50,8 @@
             this.initSendTest();
             this.initSummaryBindings();
             this.initChannels();
+            this.initOverrides();
 
-            // Selectize is initialised by Craft on DOM ready; wait for it before wiring events.
             this.whenReady(
                 $.proxy(function () {
                     return this.$event.length && this.$event[0].selectize;
@@ -86,7 +83,6 @@
                 self.populateCondition1(self.$event.val());
             });
 
-            // Restore saved conditions for an existing template, then keep the summary in sync.
             this.populateCondition1(this.$event.val(), this.settings.condition1, this.settings.condition2);
         },
 
@@ -326,12 +322,12 @@
             }
         },
 
-        // --- Quick picks for "To" ---
-
+        // --- Quick picks ("To" of each channel, private message type) ---
         initQuickPicks: function () {
             var self = this;
-            $(document).on('click', '#mailcraft-to-picks button', function () {
-                $('#to').val($(this).data('to')).trigger('input');
+            $(document).on('click', '.mailcraft-quick-picks button', function () {
+                var target = $(this).closest('.mailcraft-quick-picks').data('target') || 'to';
+                $('#' + target).val($(this).attr('data-to')).trigger('input');
             });
             $(document).on('click', '.mailcraft-vars__var', function () {
                 self.copyVariable($(this).text(), $(this));
@@ -340,7 +336,6 @@
 
         renderQuickPicks: function (event) {
             var $picks = $('#mailcraft-to-picks');
-            $picks.find('button').remove();
             var vars = event ? (this.settings.variables[event] || {}) : {};
             var picks = [];
 
@@ -360,6 +355,41 @@
                 picks.push({ label: Craft.t('mailcraft', 'System address ({email})', { email: this.settings.systemFromEmail }), to: this.settings.systemFromEmail });
             }
 
+            this.fillQuickPicks($picks, picks);
+
+            var pmPicks = [];
+            if (vars.user) {
+                pmPicks.push({ label: Craft.t('mailcraft', 'The user'), to: '{{ user.id }}' });
+            }
+            if (vars.recipient) {
+                pmPicks.push({ label: Craft.t('mailcraft', 'The user'), to: '{{ recipient.id }}' });
+            }
+            if (vars.order) {
+                pmPicks.push({ label: Craft.t('mailcraft', 'The customer'), to: '{{ order.customer.id }}' });
+            }
+            if (vars.entry) {
+                pmPicks.push({ label: Craft.t('mailcraft', 'The entry author'), to: '{{ entry.author.id }}' });
+            }
+            if (this.settings.currentUserId) {
+                pmPicks.push({ label: Craft.t('mailcraft', 'Me (#{id})', { id: this.settings.currentUserId }), to: String(this.settings.currentUserId) });
+            }
+            this.fillQuickPicks($('#mailcraft-pm-to-picks'), pmPicks);
+
+            var pmFromPicks = [];
+            if (vars.sender) {
+                pmFromPicks.push({ label: Craft.t('mailcraft', 'The sender'), to: '{{ sender.id ?? "" }}' });
+            }
+            if (this.settings.currentUserId) {
+                pmFromPicks.push({ label: Craft.t('mailcraft', 'Me (#{id})', { id: this.settings.currentUserId }), to: String(this.settings.currentUserId) });
+            }
+            this.fillQuickPicks($('#mailcraft-pm-from-picks'), pmFromPicks);
+        },
+
+        fillQuickPicks: function ($picks, picks) {
+            if (!$picks.length) {
+                return;
+            }
+            $picks.find('button').remove();
             picks.forEach(function (pick) {
                 $('<button type="button" class="btn small"/>').text(pick.label).attr('data-to', pick.to).appendTo($picks);
             });
@@ -397,20 +427,28 @@
             Craft.cp.displayNotice(Craft.t('mailcraft', 'Example loaded. Review the content and save when you are happy with it.'));
         },
 
-        getCkeditor: function () {
-            var $field = $('#template').closest('.field');
+        getCkeditor: function (id) {
+            var $field = $(document.getElementById(id || 'template')).closest('.field');
             var editable = $field.find('.ck-editor__editable')[0];
             return editable && editable.ckeditorInstance ? editable.ckeditorInstance : null;
         },
 
-        getTemplateContent: function () {
-            var editor = this.getCkeditor();
-            return editor ? editor.getData() : ($('#template').val() || '');
+        forEachCkeditor: function (fn) {
+            this.$form.find('.ck-editor__editable').each(function () {
+                if (this.ckeditorInstance) {
+                    fn(this.ckeditorInstance);
+                }
+            });
         },
 
-        setTemplateContent: function (html) {
-            var editor = this.getCkeditor();
-            var $textarea = $('#template');
+        getTemplateContent: function (id) {
+            var editor = this.getCkeditor(id);
+            return editor ? editor.getData() : ($(document.getElementById(id || 'template')).val() || '');
+        },
+
+        setTemplateContent: function (html, id) {
+            var editor = this.getCkeditor(id);
+            var $textarea = $(document.getElementById(id || 'template'));
             if (editor) {
                 editor.setData(html);
             } else {
@@ -424,22 +462,28 @@
         // --- Form data for preview / test ---
 
         collectFormData: function () {
-            var editor = this.getCkeditor();
-            if (editor && typeof editor.updateSourceElement === 'function') {
-                editor.updateSourceElement();
-            }
+            this.forEachCkeditor(function (editor) {
+                if (typeof editor.updateSourceElement === 'function') {
+                    editor.updateSourceElement();
+                }
+            });
 
             var data = { channels: {} };
             var skip = { action: true, redirect: true };
-            var channelKey = /^channels\[([^\]]+)\]\[([^\]]+)\]$/;
+            var channelKey = /^channels\[([^\]]+)\]\[([^\]]+)\](?:\[([^\]]+)\])?$/;
             this.$form.serializeArray().forEach(function (pair) {
                 if (skip[pair.name] || pair.name === Craft.csrfTokenName) {
                     return;
                 }
                 var match = channelKey.exec(pair.name);
                 if (match) {
-                    data.channels[match[1]] = data.channels[match[1]] || {};
-                    data.channels[match[1]][match[2]] = pair.value;
+                    var settings = data.channels[match[1]] = data.channels[match[1]] || {};
+                    if (match[3]) {
+                        settings[match[2]] = $.isPlainObject(settings[match[2]]) ? settings[match[2]] : {};
+                        settings[match[2]][match[3]] = pair.value;
+                    } else {
+                        settings[match[2]] = pair.value;
+                    }
                     return;
                 }
                 data[pair.name] = pair.value;
@@ -451,14 +495,25 @@
         // --- Preview ---
 
         initPreview: function () {
-            this.addListener($('#mailcraft-preview-btn'), 'click', 'showPreview');
+            this.addListener($('#mailcraft-preview-btn'), 'click', function () {
+                this.showPreview(this.previewChannel);
+            });
         },
 
-        showPreview: function () {
+        /**
+         * @param {string} channel Handle of a channel whose content override to preview; '' for the main content
+         */
+        showPreview: function (channel) {
             var $btn = $('#mailcraft-preview-btn').addClass('loading');
             var self = this;
 
-            Craft.sendActionRequest('POST', 'mailcraft/email-templates/preview', { data: this.collectFormData() })
+            channel = channel && this.getOverrideChannels()[channel] ? channel : '';
+            this.previewChannel = channel;
+
+            var data = this.collectFormData();
+            data.channel = channel;
+
+            Craft.sendActionRequest('POST', 'mailcraft/email-templates/preview', { data: data })
                 .then(function (response) {
                     var data = response.data || {};
                     if (!data.success) {
@@ -482,6 +537,11 @@
                 var $inner = $('<div class="mailcraft-preview__inner"/>').appendTo($container);
                 var $head = $('<div class="mailcraft-preview__head"/>').appendTo($inner);
                 $('<h2 class="mailcraft-preview__subject"/>').appendTo($head);
+                var $channel = $('<div class="select small mailcraft-preview__channel hidden"/>').appendTo($head);
+                var $channelSelect = $('<select/>').attr('aria-label', Craft.t('mailcraft', 'Preview')).appendTo($channel);
+                this.addListener($channelSelect, 'change', function () {
+                    this.showPreview($channelSelect.val());
+                });
                 var $close = $('<button type="button" class="btn"/>').text(Craft.t('mailcraft', 'Close')).appendTo($head);
                 $('<iframe class="mailcraft-preview__frame" sandbox="allow-same-origin"/>').attr('title', Craft.t('mailcraft', 'Email preview')).appendTo($inner);
                 this.previewModal = new Garnish.Modal($container, { autoShow: false, resizable: true });
@@ -491,7 +551,19 @@
             var $modal = this.previewModal.$container;
             $modal.find('.mailcraft-preview__subject').text(subject ? Craft.t('mailcraft', 'Preview: {subject}', { subject: subject }) : Craft.t('mailcraft', 'Preview'));
             $modal.find('iframe').attr('srcdoc', html);
+            this.fillPreviewChannels($modal.find('.mailcraft-preview__channel'));
             this.previewModal.show();
+        },
+
+        fillPreviewChannels: function ($wrapper) {
+            var $select = $wrapper.find('select').empty();
+            var channels = this.getOverrideChannels();
+            $('<option value=""/>').text(Craft.t('mailcraft', 'Main content')).appendTo($select);
+            $.each(channels, function (handle, name) {
+                $('<option/>').attr('value', handle).text(name).appendTo($select);
+            });
+            $select.val(this.previewChannel);
+            $wrapper.toggleClass('hidden', $.isEmptyObject(channels));
         },
 
         // --- Send test ---
@@ -569,6 +641,98 @@
             });
             $('#mailcraft-summary-channels').text(names.length ? names.join(', ') : Craft.t('mailcraft', 'None'));
             $('#mailcraft-no-channel-warning').toggleClass('hidden', names.length > 0);
+        },
+
+        // --- Per-channel content overrides ---
+
+        initOverrides: function () {
+            var self = this;
+            $('.mailcraft-override').each(function () {
+                var $override = $(this);
+                var handle = $override.data('override');
+                var $switch = $override.closest('.mailcraft-channel').find('.mailcraft-override-switch .lightswitch');
+                var bodyId = self.overrideBodyId(handle);
+
+                $switch.on('change', function () {
+                    $override.toggleClass('hidden', !self.isSwitchOn($switch));
+                    self.updateOverrideTab(handle);
+                });
+                $(document.getElementById(self.overrideSubjectId(handle))).on('input change', function () {
+                    self.updateOverrideTab(handle);
+                });
+                $(document.getElementById(bodyId)).on('input change', function () {
+                    self.updateOverrideTab(handle);
+                });
+                // CKEditor starts asynchronously; listen to it once it is there
+                self.whenReady(
+                    function () { return self.getCkeditor(bodyId); },
+                    function () {
+                        self.getCkeditor(bodyId).model.document.on('change:data', function () {
+                            self.updateOverrideTab(handle);
+                        });
+                    }
+                );
+            });
+
+            this.addListener($('[data-override-copy]'), 'click', function (ev) {
+                this.copyMainContent($(ev.currentTarget).data('override-copy'));
+            });
+        },
+
+        overrideSubjectId: function (handle) {
+            return 'channels-' + handle + '-_content-subject';
+        },
+
+        overrideBodyId: function (handle) {
+            return 'channels-' + handle + '-_content-body';
+        },
+
+        /**
+         * Whether a channel's override is switched on and has a subject or body.
+         */
+        hasOverride: function (handle) {
+            var $override = $('.mailcraft-override[data-override="' + handle + '"]');
+            if (!$override.length) {
+                return false;
+            }
+            if (!this.isSwitchOn($override.closest('.mailcraft-channel').find('.mailcraft-override-switch .lightswitch'))) {
+                return false;
+            }
+            var subject = $.trim($(document.getElementById(this.overrideSubjectId(handle))).val() || '');
+            var body = $.trim(this.getTemplateContent(this.overrideBodyId(handle)));
+            return subject !== '' || body !== '';
+        },
+
+        updateOverrideTab: function (handle) {
+            $('#tabs a[href="#tab-channel-' + handle + '"]').toggleClass('mailcraft-channel-override', this.hasOverride(handle));
+        },
+
+        /**
+         * Channels with an active override, `handle => name`.
+         */
+        getOverrideChannels: function () {
+            var self = this;
+            var channels = {};
+            $('.mailcraft-override').each(function () {
+                var handle = $(this).data('override');
+                if (self.hasOverride(handle)) {
+                    channels[handle] = $(this).closest('.mailcraft-channel').data('channel-name');
+                }
+            });
+            return channels;
+        },
+
+        copyMainContent: function (handle) {
+            var $subject = $(document.getElementById(this.overrideSubjectId(handle)));
+            var bodyId = this.overrideBodyId(handle);
+            var hasContent = $.trim($subject.val() || '') !== '' || $.trim(this.getTemplateContent(bodyId)) !== '';
+            if (hasContent && !confirm(Craft.t('mailcraft', 'Replace this channel’s subject and body with the main content?'))) {
+                return;
+            }
+
+            $subject.val($('#subject').val()).trigger('input');
+            this.setTemplateContent(this.getTemplateContent(), bodyId);
+            this.updateOverrideTab(handle);
         },
 
         // --- Sidebar summary ---

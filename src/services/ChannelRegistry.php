@@ -5,6 +5,7 @@ namespace frontendservices\mailcraft\services;
 use craft\base\Component;
 use frontendservices\mailcraft\base\AbstractChannel;
 use frontendservices\mailcraft\channels\EmailChannel;
+use frontendservices\mailcraft\channels\PrivateMessageChannel;
 use frontendservices\mailcraft\events\RegisterChannelsEvent;
 use frontendservices\mailcraft\MailCraft;
 
@@ -74,6 +75,7 @@ class ChannelRegistry extends Component
 
         $this->channels = [];
         $this->channels['email'] = new EmailChannel();
+        $this->channels['privateMessage'] = new PrivateMessageChannel();
 
         $event = new RegisterChannelsEvent();
         $this->trigger(self::EVENT_REGISTER_CHANNELS, $event);

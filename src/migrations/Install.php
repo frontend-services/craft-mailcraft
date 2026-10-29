@@ -32,6 +32,7 @@ class Install extends Migration
      */
     public function safeDown(): bool
     {
+        $this->dropTableIfExists('{{%mailcraft_messages}}');
         $this->dropTableIfExists('{{%mailcraft_statuses}}');
         $this->dropTableIfExists('{{%mailcraft_emailtemplates}}');
         $this->dropTableIfExists('{{%mailcraft_data}}');
@@ -52,6 +53,7 @@ class Install extends Migration
             'id' => $this->primaryKey(),
             'subject' => $this->string()->notNull(),
             'event' => $this->string()->notNull(),
+            'handle' => $this->string(255),
             'delay' => $this->integer()->unsigned(),
             'template' => $this->text()->notNull(),
             'conditions' => $this->text(),
@@ -98,6 +100,30 @@ class Install extends Migration
             'uid' => $this->uid(),
         ]);
 
+        $this->createTable('{{%mailcraft_messages}}', [
+            'id' => $this->primaryKey(),
+            'toId' => $this->integer(),
+            'fromId' => $this->integer(),
+            'templateId' => $this->integer(),
+            'siteId' => $this->integer(),
+            'type' => $this->string(100),
+            'subject' => $this->string(255)->notNull(),
+            'content' => $this->mediumText()->notNull(),
+            'pinned' => $this->boolean()->notNull()->defaultValue(false),
+            'hidden' => $this->boolean()->notNull()->defaultValue(false),
+            'dateRead' => $this->dateTime(),
+            'dateExpires' => $this->dateTime(),
+            'meta1' => $this->string(255),
+            'meta2' => $this->string(255),
+            'meta3' => $this->string(255),
+            'meta4' => $this->string(255),
+            'meta5' => $this->string(255),
+            'data' => $this->text(),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
         return true;
     }
 
@@ -113,6 +139,8 @@ class Install extends Migration
             false
         );
 
+        $this->createIndex(null, '{{%mailcraft_emailtemplates}}', 'handle', true);
+
         $this->createIndex(
             null,
             '{{%mailcraft_data}}',
@@ -122,6 +150,11 @@ class Install extends Migration
 
         foreach (['channel', 'status', 'dateCreated', 'dateUpdated', 'resentFromId', 'templateId'] as $column) {
             $this->createIndex(null, '{{%mailcraft_statuses}}', $column, false);
+        }
+
+        $this->createIndex(null, '{{%mailcraft_messages}}', 'toId,hidden,pinned,dateCreated', false);
+        foreach (['fromId', 'type', 'dateExpires', 'meta1', 'meta2', 'meta3', 'meta4', 'meta5'] as $column) {
+            $this->createIndex(null, '{{%mailcraft_messages}}', $column, false);
         }
     }
 
@@ -159,5 +192,10 @@ class Install extends Migration
             'SET NULL',
             null
         );
+
+        $this->addForeignKey(null, '{{%mailcraft_messages}}', 'toId', Table::ELEMENTS, 'id', 'CASCADE', null);
+        $this->addForeignKey(null, '{{%mailcraft_messages}}', 'fromId', Table::ELEMENTS, 'id', 'SET NULL', null);
+        $this->addForeignKey(null, '{{%mailcraft_messages}}', 'templateId', '{{%mailcraft_emailtemplates}}', 'id', 'SET NULL', null);
+        $this->addForeignKey(null, '{{%mailcraft_messages}}', 'siteId', Table::SITES, 'id', 'SET NULL', null);
     }
 }

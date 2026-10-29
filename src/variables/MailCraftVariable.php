@@ -4,6 +4,7 @@ namespace frontendservices\mailcraft\variables;
 
 use Craft;
 use craft\helpers\App;
+use craft\helpers\Html;
 use craft\ckeditor\events\ModifyConfigEvent;
 use craft\ckeditor\Field;
 use craft\ckeditor\helpers\CkeditorConfig;
@@ -11,6 +12,11 @@ use craft\ckeditor\Plugin as CkeditorPlugin;
 use craft\ckeditor\web\assets\BaseCkeditorPackageAsset;
 use frontendservices\mailcraft\assetbundles\ckeditor\MailCraftCkeditorAsset;
 use craft\web\View;
+use craft\elements\User;
+use frontendservices\mailcraft\channels\PrivateMessageChannel;
+use frontendservices\mailcraft\db\MessageQuery;
+use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\models\Message;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\services\EventRegistry;
@@ -118,14 +124,24 @@ class MailCraftVariable
     }
 
     /**
-     * Template text editor html
+     * The email body editor (CKEditor when available, a textarea otherwise) for any input name.
+     *
+     * Called with only the template it renders the main body field (`template`). Other names
+     * render the same editor with the given value, e.g. a channel's content override inside a
+     * `{% namespace %}` tag. The field id is `Html::id($name)`.
+     *
+     * @param EmailTemplate $emailTemplate
+     * @param string|null $value Defaults to the template's body for `template`, '' otherwise
+     * @param string|null $label Defaults to "Email body"
+     * @param string|null $errorAttribute The element attribute whose errors to show; defaults to `$name`
      */
-    public function templateEditor($emailTemplate): string
+    public function templateEditor($emailTemplate, string $name = 'template', ?string $value = null, ?string $label = null, bool $required = true, ?string $errorAttribute = null): string
     {
-        $handle = 'template';
-        $name = Craft::t('mailcraft', 'Email body');
+        $handle = $name;
+        $name = $label ?? Craft::t('mailcraft', 'Email body');
         $instructions = Craft::t('mailcraft', 'Write the email. Paste variables from the panel to insert dynamic content. Twig syntax works too.');
-        $template = $emailTemplate->template;
+        $template = $value ?? ($handle === 'template' ? $emailTemplate->template : '');
+        $errors = $emailTemplate->getErrors($errorAttribute ?? $handle);
         $pluginSettings = MailCraft::getInstance()->getSettings();
 
         if (Craft::$app->plugins->isPluginEnabled('ckeditor') && $pluginSettings->useWysiwyg) {
@@ -183,7 +199,7 @@ class MailCraftVariable
                         'handle' => $handle,
                         'name' => $name,
                         'instructions' => $instructions,
-                        'required' => true,
+                        'required' => $required,
                     ],
                     $ckeditorSettings
                 )
@@ -217,8 +233,8 @@ JS, \craft\web\View::POS_END);
                 {{ forms.field({
                     label: name,
                     instructions: instructions,
-                    errors: emailTemplate.getErrors('template'),
-                    required: true,
+                    errors: errors,
+                    required: required,
                 }, field) }}
 EOD;
             try {
@@ -226,7 +242,8 @@ EOD;
                     'field' => $ckEditor,
                     'name' => $name,
                     'instructions' => $instructions,
-                    'emailTemplate' => $emailTemplate,
+                    'errors' => $errors,
+                    'required' => $required,
                 ], View::TEMPLATE_MODE_CP);
             } catch (LoaderError|SyntaxError $e) {
                 return $e->getMessage();
@@ -241,11 +258,11 @@ EOD;
                 instructions: instructions,
                 class: 'nicetext code',
                 rows: 20,
-                id: handle,
+                id: id,
                 name: handle,
                 value: template,
-                errors: emailTemplate.getErrors('template'),
-                required: true,
+                errors: errors,
+                required: required,
             }) }}
 EOD;
 
@@ -253,13 +270,23 @@ EOD;
             return Craft::$app->getView()->renderString($twig, [
                 'name' => $name,
                 'handle' => $handle,
+                'id' => Html::id($handle),
                 'instructions' => $instructions,
                 'template' => $template,
-                'emailTemplate' => $emailTemplate,
+                'errors' => $errors,
+                'required' => $required,
             ], View::TEMPLATE_MODE_CP);
         } catch (LoaderError|SyntaxError $e) {
             return $e->getMessage();
         }
+    }
+
+    /**
+     * Whether per-channel content overrides are offered (two or more allowed channels).
+     */
+    public function overridesAvailable(): bool
+    {
+        return MailCraft::getInstance()->emailService->overridesAvailable();
     }
 
     /**
@@ -394,5 +421,131 @@ EOT;
             'fromEmail' => (string)App::parseEnv($settings->fromEmail),
             'fromName' => (string)App::parseEnv($settings->fromName),
         ];
+    }
+
+    /**
+     * Private messages received by a user (default: the logged-in user), with the query
+     * defaults (not hidden, not expired, pinned first, newest first). Returns nothing when
+     * there is no user.
+     *
+     * @param User|int|null $user
+     */
+    public function messages($user = null): MessageQuery
+    {
+        return MailCraft::getInstance()->privateMessages->query()->to($this->resolveUserId($user));
+    }
+
+    /**
+     * Number of visible messages a user received (default: the logged-in user).
+     *
+     * @param User|int|null $user
+     */
+    public function total($user = null): int
+    {
+        return $this->messages($user)->count();
+    }
+
+    /**
+     * Number of visible unread messages a user received (default: the logged-in user).
+     *
+     * @param User|int|null $user
+     */
+    public function unreadTotal($user = null): int
+    {
+        return $this->messages($user)->unread()->count();
+    }
+
+    /**
+     * One message by id, only when the user (default: the logged-in user) received it.
+     *
+     * @param User|int|null $user
+     */
+    public function message(int $id, $user = null): ?Message
+    {
+        return $this->messages($user)->id($id)->one();
+    }
+
+    /**
+     * Private messages a user sent (default: the logged-in user), newest first. Hidden and
+     * expired ones are included: hiding is the recipient's private flag, and an expired message
+     * is still something the sender sent. Returns nothing when there is no user.
+     *
+     * @param User|int|null $user
+     */
+    public function sentMessages($user = null): MessageQuery
+    {
+        return MailCraft::getInstance()->privateMessages->query()
+            ->sentBy($this->resolveUserId($user))
+            ->withHidden()
+            ->withExpired()
+            ->orderBy(['dateCreated' => SORT_DESC, 'id' => SORT_DESC]);
+    }
+
+    /**
+     * One message by id, only when the user (default: the logged-in user) sent it.
+     *
+     * @param User|int|null $user
+     */
+    public function sentMessage(int $id, $user = null): ?Message
+    {
+        return $this->sentMessages($user)->id($id)->one();
+    }
+
+    /**
+     * The private message types as `value => label`.
+     *
+     * @return array<string,string>
+     */
+    public function messageTypes(): array
+    {
+        return MailCraft::getInstance()->privateMessages->getTypes();
+    }
+
+    /**
+     * Templates the private message `send()` can use on this environment: those with a handle
+     * and the private message channel enabled, disabled ones included. Shown as a hint under
+     * the settings field; the field itself is free text so a handle survives a project config
+     * deploy to an environment where the template does not exist yet.
+     *
+     * @return array<int,array{id:int,handle:string,title:string,enabled:bool}>
+     */
+    public function getPrivateMessageTemplateCandidates(): array
+    {
+        $candidates = [];
+        foreach (EmailTemplate::find()->status(null)->all() as $template) {
+            /** @var EmailTemplate $template */
+            if (empty($template->handle) || !$template->isChannelEnabled(PrivateMessageChannel::HANDLE)) {
+                continue;
+            }
+
+            $candidates[] = [
+                'id' => (int)$template->id,
+                'handle' => (string)$template->handle,
+                'title' => (string)$template->title,
+                'enabled' => $template->enabled !== false,
+            ];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @param mixed $user User, id, or null for the logged-in user
+     */
+    private function resolveUserId($user): ?int
+    {
+        if ($user instanceof User) {
+            return $user->id !== null ? (int)$user->id : null;
+        }
+        if (is_int($user) || (is_string($user) && is_numeric($user))) {
+            return (int)$user;
+        }
+        if ($user === null) {
+            $id = Craft::$app->has('user') ? Craft::$app->getUser()->getId() : null;
+
+            return $id !== null ? (int)$id : null;
+        }
+
+        return null;
     }
 }

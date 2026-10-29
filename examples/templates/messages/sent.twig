@@ -1,0 +1,44 @@
+{#
+  Sent messages.
+#}
+{% extends 'messages/_layout' %}
+
+{% set perPage = 20 %}
+{% set pageParam = craft.app.request.getQueryParam('page') %}
+{% set page = pageParam is numeric ? max(1, min(pageParam, 1000000)) // 1 : 1 %}
+
+{% set query = craft.mailCraft.sentMessages() %}
+{% set total = query.count() %}
+{% set pages = max(1, (total + perPage - 1) // perPage) %}
+{% if page > pages %}{% set page = pages %}{% endif %}
+{% set messages = query.limit(perPage).offset((page - 1) * perPage).all() %}
+
+{% block title %}{{ 'Sent messages'|t('mailcraft') }}{% endblock %}
+
+{% block content %}
+  <h1 class="text-xl font-semibold mb-4">{{ 'Sent messages'|t('mailcraft') }}</h1>
+
+  {% for message in messages %}
+    <div class="mb-4 {{ message.isExpired ? 'opacity-70' }}">
+      <a href="{{ url('messages/' ~ message.id) }}" class="block">
+        <span class="font-semibold">{{ message.subject }}</span>
+        <span class="block text-sm text-gray-500">
+          {{ 'To {name}'|t('mailcraft', { name: message.to ? message.to.friendlyName : 'Deleted user'|t('mailcraft') }) }}
+          &middot; {{ message.dateCreated|date('short') }}
+          &middot; {{ message.isRead ? 'Read'|t('mailcraft') : 'Unread'|t('mailcraft') }}
+          {% if message.isExpired %}&middot; {{ 'Expired'|t('mailcraft') }}{% endif %}
+        </span>
+      </a>
+    </div>
+  {% else %}
+    <p class="text-gray-500">{{ 'No sent messages.'|t('mailcraft') }}</p>
+  {% endfor %}
+
+  {% if pages > 1 %}
+    <nav class="flex gap-4 mt-6 text-sm">
+      {% if page > 1 %}<a href="{{ url('messages/sent', {page: page - 1}) }}">&larr; {{ 'Newer'|t('mailcraft') }}</a>{% endif %}
+      <span>{{ page }} / {{ pages }}</span>
+      {% if page < pages %}<a href="{{ url('messages/sent', {page: page + 1}) }}">{{ 'Older'|t('mailcraft') }} &rarr;</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

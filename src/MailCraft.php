@@ -7,11 +7,14 @@ use craft\base\Plugin;
 use craft\ckeditor\helpers\CkeditorConfig;
 use craft\ckeditor\web\assets\fieldsettings\FieldSettingsAsset;
 use craft\events\RegisterComponentTypesEvent;
+use craft\helpers\Cp;
+use craft\helpers\Html;
 use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\services\Elements;
 use craft\services\UserPermissions;
 use craft\web\twig\variables\CraftVariable;
+use craft\web\Controller;
 use craft\web\UrlManager;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\events\providers\AssetCreateEventProvider;
@@ -20,6 +23,7 @@ use frontendservices\mailcraft\events\providers\AssetUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryCreateEventProvider;
 use frontendservices\mailcraft\events\providers\EntryDeleteEventProvider;
 use frontendservices\mailcraft\events\providers\EntryUpdateEventProvider;
+use frontendservices\mailcraft\events\providers\ManualEventProvider;
 use frontendservices\mailcraft\events\providers\SystemQueueFailEventProvider;
 use frontendservices\mailcraft\events\providers\SystemUpdatesAvailableEventProvider;
 use frontendservices\mailcraft\events\providers\UserActivateEventProvider;
@@ -34,10 +38,12 @@ use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\DataService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\services\EventRegistry;
+use frontendservices\mailcraft\services\PrivateMessageService;
 use frontendservices\mailcraft\services\StatusService;
 use frontendservices\mailcraft\variables\MailCraftVariable;
 use yii\base\Event;
 use yii\base\InvalidConfigException;
+use yii\web\Response;
 
 /**
  * MailCraft plugin
@@ -56,10 +62,11 @@ use yii\base\InvalidConfigException;
  * @property-read CkeditorService $ckeditor
  * @property-read ChannelRegistry $channelRegistry
  * @property-read StatusService $statusService
+ * @property-read PrivateMessageService $privateMessages
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.3.0';
+    public string $schemaVersion = '1.4.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;
@@ -75,6 +82,14 @@ class MailCraft extends Plugin
         return [
             self::EDITION_STANDARD,
         ];
+    }
+
+    /**
+     * Sends a template from code (by element, id or handle) with the given Twig variables.
+     */
+    public static function send(int|string|EmailTemplate $template, array $variables = [], int $delay = 0): bool
+    {
+        return static::getInstance()->emailService->send($template, $variables, $delay);
     }
 
     public static function config(): array
@@ -106,6 +121,7 @@ class MailCraft extends Plugin
             'ckeditor' => CkeditorService::class,
             'channelRegistry' => ChannelRegistry::class,
             'statusService' => StatusService::class,
+            'privateMessages' => PrivateMessageService::class,
         ]);
 
         // Register variable
@@ -126,9 +142,9 @@ class MailCraft extends Plugin
 
         $this->registerProviders();
 
-        // Purge old statuses on GC run
         Event::on(\craft\services\Gc::class, \craft\services\Gc::EVENT_RUN, function() {
             $this->statusService->purge();
+            $this->privateMessages->purgeExpired();
         });
 
         $emailService = $this->get('emailService');
@@ -145,31 +161,95 @@ class MailCraft extends Plugin
     /**
      * @inheritdoc
      */
+    public function getSettingsResponse(): mixed
+    {
+        return $this->renderSettingsPage(false);
+    }
+
+    /**
+     * Craft 5.6+ calls this instead of getSettingsResponse() when admin changes are not allowed.
+     */
+    public function getReadOnlySettingsResponse(): mixed
+    {
+        return $this->renderSettingsPage(true);
+    }
+
+    /**
+     * @inheritdoc
+     *
+     * Not used by Craft once getSettingsResponse() is overridden; kept so anything else that
+     * asks for the settings HTML still gets every field, one group after the other.
+     */
     protected function settingsHtml(): ?string
     {
+        return implode("\n<hr>\n", array_column($this->renderSettingsPanes(false), 'html'));
+    }
+
+    /**
+     * The settings page: one tab per group of settings. Each pane is rendered and namespaced
+     * under `settings` on its own; the tab list and the pane ids stay outside that namespace so
+     * Craft's tab switcher finds them.
+     */
+    private function renderSettingsPage(bool $readOnly): Response
+    {
+        /** @var Controller $controller */
+        $controller = Craft::$app->controller;
+
+        return $controller->renderTemplate('mailcraft/settings/index.twig', [
+            'plugin' => $this,
+            'panes' => $this->renderSettingsPanes($readOnly),
+            'readOnly' => $readOnly,
+            'contentNotice' => $readOnly && method_exists(Cp::class, 'readOnlyNoticeHtml') ? Cp::readOnlyNoticeHtml() : '',
+        ]);
+    }
+
+    /**
+     * Renders the settings groups, in tab order.
+     *
+     * @return array<string, array{label: string, html: string, hasErrors: bool}> keyed by tab id
+     */
+    private function renderSettingsPanes(bool $readOnly): array
+    {
         $settings = $this->getSettings();
+        $view = Craft::$app->getView();
         $variables = [
             'plugin' => $this,
             'settings' => $settings,
             'channels' => $this->channelRegistry->getChannels(),
         ];
 
-        if (\Craft::$app->plugins->isPluginInstalled('ckeditor')) {
-            $view = Craft::$app->getView();
+        $panes = [
+            'general' => [
+                'label' => Craft::t('mailcraft', 'General'),
+                'template' => '_general',
+                'attributes' => ['pluginName', 'useWysiwyg', 'showCcBcc', 'sendInstantEmailsDirectly'],
+            ],
+            'channels' => [
+                'label' => Craft::t('mailcraft', 'Channels'),
+                'template' => '_channels',
+                'attributes' => ['allowedChannels', 'channelSettings', 'statusChannels', 'statusRetentionDays'],
+            ],
+        ];
+
+        if (in_array('*', $settings->allowedChannels, true) || in_array('privateMessage', $settings->allowedChannels, true)) {
+            $panes['private-messages'] = [
+                'label' => Craft::t('mailcraft', 'Private messages'),
+                'template' => '_private-messages',
+                'attributes' => ['privateMessageTypes', 'privateMessageTemplate', 'allowFrontendSending', 'frontendSendingPerHour', 'frontendSendingType'],
+            ];
+        }
+
+        if ($settings->useWysiwyg && Craft::$app->plugins->isPluginInstalled('ckeditor')) {
             $bundle = $view->registerAssetBundle(FieldSettingsAsset::class);
 
             $variables = array_merge($variables, $this->get('ckeditor')->getSettingsVariables() ?? []);
             $variables['toolbarItems'] = CkeditorConfig::normalizeToolbarItems(CkeditorConfig::$toolbarItems);
             $variables['plugins'] = CkeditorConfig::getAllPlugins();
             $variables['importStatements'] = CkeditorConfig::getImportStatements();
-            // namespaceInputId() pre-computes the ID after Craft's namespace is applied.
-            // The HTML div must use a plain hardcoded id (no {{ toolbarBuilderId }}) so
-            // Craft namespaces it exactly once — matching the pre-computed JS value.
-            $variables['toolbarBuilderId'] = $view->namespaceInputId('mailcraft-toolbar-builder');
             $variables['baseIconsUrl'] = "$bundle->baseUrl/images";
 
             // Normalize ckeditor settings — old versions may have stored unexpected types
-            $ckeditorSettings = $variables['settings']->ckeditor ?? [];
+            $ckeditorSettings = $settings->ckeditor ?? [];
             if (!is_array($ckeditorSettings)) {
                 $ckeditorSettings = [];
             }
@@ -207,10 +287,34 @@ class MailCraft extends Plugin
                 $entryTypes
             )));
 
-            $variables['settings']->ckeditor = $ckeditorSettings;
+            $settings->ckeditor = $ckeditorSettings;
+
+            $panes['editor'] = [
+                'label' => Craft::t('mailcraft', 'Editor'),
+                'template' => '_editor',
+                'attributes' => ['ckeditor'],
+            ];
         }
 
-        return Craft::$app->view->renderTemplate('mailcraft/_settings.twig', $variables);
+        // an error key is the attribute name, or `attribute.sub.key` for nested settings
+        $erroredAttributes = [];
+        foreach (array_keys($settings->getErrors()) as $key) {
+            $erroredAttributes[explode('.', (string)$key, 2)[0]] = true;
+        }
+
+        $rendered = [];
+        foreach ($panes as $id => $pane) {
+            $render = static fn() => $view->renderTemplate('mailcraft/settings/' . $pane['template'], $variables);
+            $rendered[$id] = [
+                'label' => $pane['label'],
+                'html' => $view->namespaceInputs(static function() use ($render, $readOnly) {
+                    return $readOnly ? (string)Html::disableInputs($render) : (string)$render();
+                }, 'settings'),
+                'hasErrors' => array_intersect($pane['attributes'], array_keys($erroredAttributes)) !== [],
+            ];
+        }
+
+        return $rendered;
     }
 
     /**
@@ -224,6 +328,9 @@ class MailCraft extends Plugin
         $registry = $this->get('eventRegistry');
 
         if ($registry) {
+            /** Sent from code only; never fires by itself */
+            $registry->registerProvider(new ManualEventProvider());
+
             /** Entry events */
             $registry->registerProvider(new EntryUpdateEventProvider());
             $registry->registerProvider(new EntryCreateEventProvider());

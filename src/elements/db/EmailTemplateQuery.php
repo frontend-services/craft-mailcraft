@@ -8,9 +8,16 @@ use frontendservices\mailcraft\elements\EmailTemplate;
 
 class EmailTemplateQuery extends ElementQuery
 {
+    public mixed $handle = null;
     public ?string $event = null;
     public ?string $subject = null;
     public ?string $to = null;
+
+    public function handle($value): self
+    {
+        $this->handle = $value;
+        return $this;
+    }
 
     public function event($value): self
     {
@@ -35,6 +42,7 @@ class EmailTemplateQuery extends ElementQuery
         $this->joinElementTable('mailcraft_emailtemplates');
 
         $this->query->select([
+            'mailcraft_emailtemplates.handle',
             'mailcraft_emailtemplates.subject',
             'mailcraft_emailtemplates.event',
             'mailcraft_emailtemplates.delay',
@@ -51,6 +59,10 @@ class EmailTemplateQuery extends ElementQuery
             'mailcraft_emailtemplates.condition2',
             'mailcraft_emailtemplates.channels',
         ]);
+
+        if ($this->handle !== null) {
+            $this->subQuery->andWhere(['mailcraft_emailtemplates.handle' => $this->handle]);
+        }
 
         if ($this->event) {
             $this->subQuery->andWhere(['mailcraft_emailtemplates.event' => $this->event]);

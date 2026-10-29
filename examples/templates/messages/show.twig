@@ -1,0 +1,50 @@
+{#
+  One message page, with a reply form.
+  Needs a site route, for example in config/routes.php: 'messages/<id:\d+>' => ['template' => 'messages/show']
+#}
+{% extends 'messages/_layout' %}
+
+{% set messageId = id|default(0)|abs %}
+{% set message = craft.mailCraft.message(messageId) %}
+{% set isSent = false %}
+{% if not message %}
+  {% set message = craft.mailCraft.sentMessage(messageId) %}
+  {% set isSent = message is not null %}
+{% endif %}
+{% if not message %}{% exit 404 %}{% endif %}
+
+{% set settings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}
+{% set canReply = settings.allowFrontendSending
+  and not isSent
+  and message.from
+  and message.from.status == 'active'
+  and currentUser
+  and message.from.id != currentUser.id %}
+
+{% block content %}
+  {% include 'messages/_message' with { message: message, isSent: isSent } %}
+
+  {% if canReply %}
+    {% set replySubject = message.subject starts with 'Re: ' ? message.subject : 'Re: ' ~ message.subject %}
+    <form method="post" class="mt-6 space-y-4">
+      {{ csrfInput() }}
+      {{ actionInput('mailcraft/messages/send') }}
+      {{ redirectInput(craft.app.request.url) }}
+      <input type="hidden" name="to" value="{{ message.from.id }}">
+
+      <h2 class="text-lg font-semibold">{{ 'Reply to {name}'|t('mailcraft', { name: message.from.friendlyName }) }}</h2>
+
+      <label class="block">
+        <span class="block text-sm mb-1">{{ 'Subject'|t('mailcraft') }}</span>
+        <input type="text" name="subject" maxlength="255" required value="{{ replySubject|slice(0, 255) }}" class="w-full rounded border border-gray-300 p-2">
+      </label>
+
+      <label class="block">
+        <span class="block text-sm mb-1">{{ 'Message'|t('mailcraft') }}</span>
+        <textarea name="content" rows="6" required class="w-full rounded border border-gray-300 p-2"></textarea>
+      </label>
+
+      <button type="submit" class="rounded bg-blue-600 text-white px-4 py-2">{{ 'Send reply'|t('mailcraft') }}</button>
+    </form>
+  {% endif %}
+{% endblock %}

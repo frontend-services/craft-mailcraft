@@ -1,0 +1,48 @@
+{#
+ # Plugin settings page.
+ #
+ # @var plugin \frontendservices\mailcraft\MailCraft
+ # @var panes array<string, {label: string, html: string, hasErrors: bool}>
+ # @var readOnly bool
+ # @var contentNotice string
+ #}
+{% extends "_layouts/cp" %}
+
+{% set title = plugin.name %}
+{% set docTitle = title ~ ' - ' ~ "Plugins"|t('app') %}
+{% set fullPageForm = not readOnly %}
+
+{% set crumbs = [
+    { label: "Settings"|t('app'), url: url('settings') },
+    { label: "Plugins"|t('app'), url: url('settings/plugins') },
+] %}
+
+{% set tabs = {} %}
+{% for id, pane in panes %}
+    {% set tabs = tabs|merge({ ("tab-#{id}"): { label: pane.label, url: "#tab-#{id}", class: pane.hasErrors ? 'error' : '' } }) %}
+{% endfor %}
+
+{% if not readOnly %}
+    {% set formActions = [
+        {
+            label: 'Save and continue editing'|t('app'),
+            redirect: "settings/plugins/#{plugin.handle}"|hash,
+            shortcut: true,
+            retainScroll: true,
+        },
+    ] %}
+{% endif %}
+
+{% block content %}
+    {% if not readOnly %}
+        {{ actionInput('plugins/save-plugin-settings') }}
+        {{ hiddenInput('pluginHandle', plugin.handle) }}
+        {{ redirectInput('settings') }}
+    {% endif %}
+
+    {% for id, pane in panes %}
+        <div id="tab-{{ id }}"{% if not loop.first %} class="hidden"{% endif %}>
+            {{ pane.html|raw }}
+        </div>
+    {% endfor %}
+{% endblock %}

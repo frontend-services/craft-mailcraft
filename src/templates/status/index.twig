@@ -127,8 +127,8 @@
                             {% endif %}
                             {% if s.status == 'failed' and s.error %}
                                 <span class="error" title="{{ s.error }}">{{ s.error|slice(0, 80) }}</span>
-                            {% elseif s.status == 'cancelled' and s.error %}
-                                <span class="light">{{ s.error }}</span>
+                            {% elseif s.status == 'cancelled' and s.getCancelDetail() %}
+                                <span class="light">{{ s.getCancelDetail() }}</span>
                             {% endif %}
                             {% if s.id in resentIds %}
                                 <span class="light">· {{ 'Resent'|t('mailcraft') }}</span>

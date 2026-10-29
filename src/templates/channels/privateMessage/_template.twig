@@ -1,0 +1,121 @@
+{% import "_includes/forms" as forms %}
+{% set settings = emailTemplate.getChannelSettings('privateMessage') %}
+{% set messageTypes = craft.app.plugins.getPlugin('mailcraft').getSettings().getPrivateMessageTypes() %}
+{% set showAdvanced = (settings.meta1 ?? false) or (settings.meta2 ?? false) or (settings.meta3 ?? false) or (settings.meta4 ?? false) or (settings.meta5 ?? false) or (settings.data ?? false) or (settings.dateExpires ?? false) %}
+
+{% set toInput %}
+    {{ forms.text({
+        id: 'channels-privateMessage-to',
+        name: 'channels[privateMessage][to]',
+        value: settings.to ?? '',
+        class: 'code',
+    }) }}
+    <div class="flex mailcraft-quick-picks hidden" id="mailcraft-pm-to-picks" data-target="channels-privateMessage-to">
+        <span class="light">{{ 'Quick pick:'|t('mailcraft') }}</span>
+    </div>
+{% endset %}
+{{ forms.field({
+    label: "To"|t('mailcraft'),
+    instructions: "User ids, emails or usernames, comma separated. Variables are allowed."|t('mailcraft'),
+    id: 'channels-privateMessage-to',
+    errors: emailTemplate.getErrors('channels.privateMessage.to'),
+    required: true,
+}, toInput) }}
+
+{% set fromInput %}
+    {{ forms.text({
+        id: 'channels-privateMessage-from',
+        name: 'channels[privateMessage][from]',
+        value: settings.from ?? '',
+        class: 'code',
+    }) }}
+    <div class="flex mailcraft-quick-picks hidden" id="mailcraft-pm-from-picks" data-target="channels-privateMessage-from">
+        <span class="light">{{ 'Quick pick:'|t('mailcraft') }}</span>
+    </div>
+{% endset %}
+{{ forms.field({
+    label: "From"|t('mailcraft'),
+    instructions: "One user id, email or username. Leave empty for a system message."|t('mailcraft'),
+    id: 'channels-privateMessage-from',
+    errors: emailTemplate.getErrors('channels.privateMessage.from'),
+}, fromInput) }}
+
+{% set typeInput %}
+    {{ forms.text({
+        id: 'channels-privateMessage-type',
+        name: 'channels[privateMessage][type]',
+        value: settings.type ?? '',
+        class: 'code',
+    }) }}
+    {% if messageTypes|length %}
+        <div class="flex mailcraft-quick-picks" id="mailcraft-pm-type-picks" data-target="channels-privateMessage-type">
+            <span class="light">{{ 'Quick pick:'|t('mailcraft') }}</span>
+            {% for value, label in messageTypes %}
+                <button type="button" class="btn small" data-to="{{ value }}">{{ label }}</button>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endset %}
+{{ forms.field({
+    label: "Type"|t('mailcraft'),
+    instructions: "Optional. Lets templates and code filter messages. Variables are allowed. When left empty, the type passed from code (the `type` variable) is used, if there is one."|t('mailcraft'),
+    id: 'channels-privateMessage-type',
+    errors: emailTemplate.getErrors('channels.privateMessage.type'),
+}, typeInput) }}
+
+{{ forms.lightswitchField({
+    label: "Pinned"|t('mailcraft'),
+    instructions: "Pinned messages are listed first."|t('mailcraft'),
+    id: 'channels-privateMessage-pinned',
+    name: 'channels[privateMessage][pinned]',
+    on: settings.pinned ?? false,
+}) }}
+
+{{ forms.textField({
+    label: "Expires after"|t('mailcraft'),
+    instructions: "0 or empty = never expires."|t('mailcraft'),
+    id: 'channels-privateMessage-expiresDays',
+    name: 'channels[privateMessage][expiresDays]',
+    value: settings.expiresDays ?? '',
+    type: 'number',
+    min: 0,
+    size: 5,
+    unit: 'days'|t('mailcraft'),
+    errors: emailTemplate.getErrors('channels.privateMessage.expiresDays'),
+}) }}
+
+<div class="field">
+    <a class="fieldtoggle{{ showAdvanced ? ' expanded' }}" data-target="mailcraft-pm-advanced" role="button" tabindex="0" aria-expanded="{{ showAdvanced ? 'true' : 'false' }}">{{ 'Advanced: meta fields and data'|t('mailcraft') }}</a>
+    <div id="mailcraft-pm-advanced" class="mailcraft-disclosure flex-fields{{ not showAdvanced ? ' hidden' }}">
+        {% for i in 1..5 %}
+            {{ forms.textField({
+                label: "Meta {num}"|t('mailcraft', { num: i }),
+                id: 'channels-privateMessage-meta' ~ i,
+                name: 'channels[privateMessage][meta' ~ i ~ ']',
+                value: settings['meta' ~ i] ?? '',
+                class: 'code',
+                fieldClass: 'width-50',
+                errors: emailTemplate.getErrors('channels.privateMessage.meta' ~ i),
+            }) }}
+        {% endfor %}
+        {{ forms.textareaField({
+            label: "Data"|t('mailcraft'),
+            instructions: "Must render to JSON, for example `{{ {orderId: order.id}|json_encode }}`."|t('mailcraft'),
+            id: 'channels-privateMessage-data',
+            name: 'channels[privateMessage][data]',
+            value: settings.data ?? '',
+            rows: 3,
+            class: 'code',
+            errors: emailTemplate.getErrors('channels.privateMessage.data'),
+        }) }}
+        {{ forms.textField({
+            label: "Expires at"|t('mailcraft'),
+            instructions: "Optional. A date (Y-m-d H:i:s) that overrides Expires after."|t('mailcraft'),
+            id: 'channels-privateMessage-dateExpires',
+            name: 'channels[privateMessage][dateExpires]',
+            value: settings.dateExpires ?? '',
+            class: 'code',
+            errors: emailTemplate.getErrors('channels.privateMessage.dateExpires'),
+        }) }}
+    </div>
+</div>

@@ -1,0 +1,32 @@
+{#
+  Demo layout for the private message pages.
+#}
+<!doctype html>
+<html lang="{{ craft.app.language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ 'Messages'|t('mailcraft') }}{% endblock %}</title>
+  {# Tailwind browser build: demo only, not for production. #}
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <nav class="bg-white border-b border-gray-200">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex gap-4 items-center">
+      <a href="{{ url('messages') }}" class="font-semibold">{{ 'Inbox'|t('mailcraft') }}</a>
+      <a href="{{ url('messages/sent') }}" class="text-gray-600">{{ 'Sent'|t('mailcraft') }}</a>
+      <a href="{{ url('messages/send') }}" class="text-gray-600">{{ 'New message'|t('mailcraft') }}</a>
+    </div>
+  </nav>
+
+  {% include 'messages/_badge' %}
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    {% set flashError = craft.app.session.getFlash('error') %}
+    {% set flashNotice = craft.app.session.getFlash('success') %}
+    {% if flashError %}<p class="mb-4 rounded bg-red-100 text-red-800 px-3 py-2">{{ flashError }}</p>{% endif %}
+    {% if flashNotice %}<p class="mb-4 rounded bg-green-100 text-green-800 px-3 py-2">{{ flashNotice }}</p>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -55,6 +55,32 @@ class Settings extends Model
     public int $statusRetentionDays = 30;
 
     /**
+     * @var array Labels for the private message `type` value, stored as `label => value`.
+     * Empty by default; a type without a label shows its raw value.
+     */
+    public array $privateMessageTypes = [];
+
+    /**
+     * @var mixed Template used by the `send()` facade (id or handle); null means the built-in simple message.
+     */
+    public mixed $privateMessageTemplate = null;
+
+    /**
+     * @var bool Whether logged-in users may send messages through the `mailcraft/messages/send` action.
+     */
+    public bool $allowFrontendSending = false;
+
+    /**
+     * @var int Messages one user may send through the frontend action per hour. 0 means no limit.
+     */
+    public int $frontendSendingPerHour = 30;
+
+    /**
+     * @var string|null Type written on messages sent through the frontend action.
+     */
+    public ?string $frontendSendingType = 'user';
+
+    /**
      * @var mixed|null CKEditor plugin instance if available
      */
     public mixed $ckeditor = null;
@@ -81,6 +107,37 @@ class Settings extends Model
             $values['channelSettings'] = [];
         }
 
+        if (is_array($values) && array_key_exists('privateMessageTypes', $values)) {
+            $values['privateMessageTypes'] = $this->normalizeTypes($values['privateMessageTypes']);
+        }
+
+        if (is_array($values) && array_key_exists('privateMessageTemplate', $values)) {
+            $template = $values['privateMessageTemplate'];
+            if (is_string($template)) {
+                $template = trim($template);
+            }
+            if ($template === '' || $template === null || (!is_scalar($template))) {
+                $template = null;
+            } elseif (is_numeric($template)) {
+                $template = (int)$template;
+            }
+            $values['privateMessageTemplate'] = $template;
+        }
+
+        if (is_array($values) && array_key_exists('allowFrontendSending', $values)) {
+            $values['allowFrontendSending'] = (bool)$values['allowFrontendSending'];
+        }
+
+        if (is_array($values) && array_key_exists('frontendSendingPerHour', $values)) {
+            $values['frontendSendingPerHour'] = is_numeric($values['frontendSendingPerHour']) ? (int)$values['frontendSendingPerHour'] : 30;
+        }
+
+        if (is_array($values) && array_key_exists('frontendSendingType', $values)) {
+            $type = $values['frontendSendingType'];
+            $type = is_scalar($type) ? trim((string)$type) : '';
+            $values['frontendSendingType'] = $type !== '' ? $type : null;
+        }
+
         parent::setAttributes($values, $safeOnly);
     }
 
@@ -92,6 +149,24 @@ class Settings extends Model
         $settings = $this->channelSettings[$handle] ?? [];
 
         return is_array($settings) ? $settings : [];
+    }
+
+    /**
+     * Returns the private message types as `value => label`. When two labels share a value,
+     * the later one wins.
+     *
+     * @return array<string,string>
+     */
+    public function getPrivateMessageTypes(): array
+    {
+        $types = [];
+        foreach ($this->privateMessageTypes as $label => $value) {
+            if (is_scalar($value)) {
+                $types[(string)$value] = (string)$label;
+            }
+        }
+
+        return $types;
     }
 
     /**
@@ -122,6 +197,40 @@ class Settings extends Model
             array_map(static fn($handle) => is_scalar($handle) ? (string)$handle : '', $value),
             static fn(string $handle) => $handle !== ''
         ));
+    }
+
+    /**
+     * Normalises the private message types to the stored `label => value` map.
+     */
+    private function normalizeTypes(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $types = [];
+        foreach ($value as $key => $entry) {
+            if (is_array($entry)) {
+                $typeValue = $entry['value'] ?? '';
+                $label = $entry['label'] ?? '';
+            } elseif (is_string($key)) {
+                $typeValue = $entry;
+                $label = $key;
+            } else {
+                $typeValue = $entry;
+                $label = '';
+            }
+
+            $typeValue = is_scalar($typeValue) ? trim((string)$typeValue) : '';
+            $label = is_scalar($label) ? trim((string)$label) : '';
+            if ($typeValue === '') {
+                continue;
+            }
+
+            $types[$label !== '' ? $label : $typeValue] = $typeValue;
+        }
+
+        return $types;
     }
 
     public function validateAllowedChannels(): void
@@ -176,12 +285,16 @@ class Settings extends Model
             ['showCcBcc', 'default', 'value' => false],
             ['sendInstantEmailsDirectly', 'boolean'],
             ['sendInstantEmailsDirectly', 'default', 'value' => false],
-            // skipOnEmpty would silently accept an empty list, which is exactly the state to reject
             ['allowedChannels', 'validateAllowedChannels', 'skipOnEmpty' => false],
             ['channelSettings', 'validateChannelSettings', 'skipOnEmpty' => false],
             ['statusChannels', 'validateStatusChannels', 'skipOnEmpty' => false],
             ['statusRetentionDays', 'integer', 'min' => 0],
             ['statusRetentionDays', 'default', 'value' => 30],
+            ['privateMessageTemplate', 'safe'],
+            ['allowFrontendSending', 'boolean'],
+            ['frontendSendingPerHour', 'integer', 'min' => 0],
+            ['frontendSendingPerHour', 'default', 'value' => 30],
+            ['frontendSendingType', 'string', 'max' => 100],
         ];
     }
 }

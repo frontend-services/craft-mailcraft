@@ -1,5 +1,9 @@
 # Release Notes for MailCraft
 
+## 1.6.0 - 2026-10-28
+- Private messages
+- Per-channel content overrides
+
 ## 1.5.0 - 2026-10-27
 - Status page
 

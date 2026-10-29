@@ -1,0 +1,33 @@
+{% import "_includes/forms" as forms %}
+
+{# @var settings \frontendservices\mailcraft\models\Settings #}
+
+{{ forms.textField({
+    label: "Plugin Name"|t('mailcraft'),
+    instructions: "How the plugin should be named in the CP"|t('mailcraft'),
+    id: 'pluginName',
+    name: 'pluginName',
+    value: settings.pluginName,
+    errors: settings.getErrors('pluginName'),
+    first: true,
+    autofocus: true,
+    required: true,
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Use WYSIWYG Editor"|t('mailcraft'),
+    instructions: "Whether to use a WYSIWYG editor for the email templates. Needs the CKEditor plugin; its options are on the Editor tab once this is on."|t('mailcraft'),
+    id: 'useWysiwyg',
+    name: 'useWysiwyg',
+    on: settings.useWysiwyg,
+    errors: settings.getErrors('useWysiwyg'),
+}) }}
+
+{{ forms.lightswitchField({
+    label: "Send instant messages without the queue"|t('mailcraft'),
+    instructions: "Messages whose delay is set to “Instantly” are sent right away, during the request that triggered them, instead of being pushed to the queue. Delayed messages always use the queue.<br>Turn this on if your queue is not running reliably. Sending directly makes the triggering request slower, and if the delivery fails the message will be queued so it can still be retried."|t('mailcraft'),
+    id: 'sendInstantEmailsDirectly',
+    name: 'sendInstantEmailsDirectly',
+    on: settings.sendInstantEmailsDirectly,
+    errors: settings.getErrors('sendInstantEmailsDirectly'),
+}) }}

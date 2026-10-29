@@ -25,7 +25,9 @@
     'System default',
     '{amount} {unit}',
     'second', 'seconds', 'minute', 'minutes', 'hour', 'hours', 'day', 'days', 'week', 'weeks',
-    'The user', 'The customer', 'The entry author', 'Me ({email})', 'System address ({email})',
+    'The user', 'The customer', 'The entry author', 'The sender', 'Me ({email})', 'Me (#{id})', 'System address ({email})',
+    'Main content',
+    'Replace this channel’s subject and body with the main content?',
 ]) %}
 
 {% set pluginSettings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}
@@ -57,10 +59,15 @@
 } %}
 
 {% set enabledChannels = emailTemplate.getEnabledChannels() %}
+{% set overridesAvailable = craft.mailCraft.overridesAvailable() %}
 {% for handle, channel in channels %}
     {% set channelErrorKeys = emailTemplate.getErrors()|keys|filter(k => k starts with "channels.#{handle}.") %}
     {% set channelHasErrors = channelErrorKeys|length > 0 or (handle == 'email' and recipientsHaveErrors) %}
-    {% set tabClasses = [channelHasErrors ? 'error' : null, emailTemplate.isChannelEnabled(handle) ? 'mailcraft-channel-on' : null]|filter(c => c) %}
+    {% set tabClasses = [
+        channelHasErrors ? 'error' : null,
+        emailTemplate.isChannelEnabled(handle) ? 'mailcraft-channel-on' : null,
+        overridesAvailable and emailTemplate.hasContentOverride(handle) ? 'mailcraft-channel-override' : null,
+    ]|filter(c => c) %}
     {% set tabs = tabs|merge({ ("tab-channel-#{handle}"): { label: channel.getName(), url: "#tab-channel-#{handle}", class: tabClasses|join(' ') } }) %}
 {% endfor %}
 {% set testChannels = enabledChannels|filter(c => c.supportsTestSend())|map(c => c.getName()) %}
@@ -246,6 +253,13 @@
             }) }}
             {# Channel fields are direct children of the tab: nesting another .flex-fields makes Craft draw them as nested fields. #}
             {{ channel.getTemplateSettingsHtml(emailTemplate)|raw }}
+            {% if overridesAvailable %}
+                {% include 'mailcraft/email-templates/_content-override' with {
+                    emailTemplate: emailTemplate,
+                    handle: handle,
+                    channelName: channel.getName(),
+                } only %}
+            {% endif %}
         </div>
     {% endfor %}
 {% endblock %}
@@ -257,6 +271,15 @@
             id: 'enabled',
             name: 'enabled',
             on: emailTemplate.enabled,
+        }) }}
+        {{ forms.textField({
+            label: 'Handle'|t('mailcraft'),
+            instructions: 'Optional. Lets code send this template by name: MailCraft::send(\'order-shipped\', …).'|t('mailcraft'),
+            id: 'handle',
+            name: 'handle',
+            value: emailTemplate.handle,
+            class: 'code',
+            errors: emailTemplate.getErrors('handle'),
         }) }}
     </div>
 
@@ -277,26 +300,34 @@
             <h5 class="heading">{{ 'Channels'|t('mailcraft') }}</h5>
             <div class="value" id="mailcraft-summary-channels">{{ enabledChannels|map(c => c.getName())|join(', ') ?: 'None'|t('mailcraft') }}</div>
         </div>
-        {% for handle, channel in channels %}
-            {% if handle == 'email' %}
-                <div class="data{{ not emailTemplate.isChannelEnabled('email') ? ' hidden' }}" data-channel-summary="email">
-                    <h5 class="heading">{{ 'To'|t('mailcraft') }}</h5>
-                    <div class="value"><code id="mailcraft-summary-to">{{ emailTemplate.to }}</code></div>
-                </div>
-                <div class="data{{ not emailTemplate.isChannelEnabled('email') ? ' hidden' }}" data-channel-summary="email">
-                    <h5 class="heading">{{ 'From'|t('mailcraft') }}</h5>
-                    <div class="value" id="mailcraft-summary-from">{{ emailTemplate.from ?: 'System default'|t('mailcraft') }}</div>
-                </div>
-            {% else %}
-                {% for label, value in channel.getTemplateSummary(emailTemplate) %}
-                    <div class="data{{ not emailTemplate.isChannelEnabled(handle) ? ' hidden' }}" data-channel-summary="{{ handle }}">
-                        <h5 class="heading">{{ label }}</h5>
-                        <div class="value">{{ value }}</div>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
     </div>
+
+    {# One block per channel with its own summary rows; hidden while the channel is off #}
+    {% for handle, channel in channels %}
+        {% set summaryRows = handle == 'email' ? {} : channel.getTemplateSummary(emailTemplate) %}
+        {% if handle == 'email' or summaryRows|length %}
+            <div class="meta read-only mailcraft-summary mailcraft-channel-summary{{ not emailTemplate.isChannelEnabled(handle) ? ' hidden' }}" data-channel-summary="{{ handle }}">
+                <h3 class="mailcraft-channel-summary__title">{{ channel.getName() }}</h3>
+                {% if handle == 'email' %}
+                    <div class="data">
+                        <h5 class="heading">{{ 'To'|t('mailcraft') }}</h5>
+                        <div class="value"><code id="mailcraft-summary-to">{{ emailTemplate.to }}</code></div>
+                    </div>
+                    <div class="data">
+                        <h5 class="heading">{{ 'From'|t('mailcraft') }}</h5>
+                        <div class="value" id="mailcraft-summary-from">{{ emailTemplate.from ?: 'System default'|t('mailcraft') }}</div>
+                    </div>
+                {% else %}
+                    {% for label, value in summaryRows %}
+                        <div class="data">
+                            <h5 class="heading">{{ label }}</h5>
+                            <div class="value">{{ value }}</div>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endfor %}
     <p class="warning with-icon mailcraft-no-channel-warning{{ enabledChannels|length ? ' hidden' }}" id="mailcraft-no-channel-warning">{{ 'Nothing will be sent: no channel is enabled.'|t('mailcraft') }}</p>
 
     {% if anyTestChannel %}
@@ -305,7 +336,16 @@
             <div class="heading"><label for="mailcraft-send-test">{{ 'Test'|t('mailcraft') }}</label></div>
             <div class="input ltr">
                 <button type="button" id="mailcraft-send-test" class="btn small">{{ 'Send a test to me'|t('mailcraft') }}</button>
-                <div class="smalltext light mailcraft-send-test__hint">{{ 'Uses sample data and goes to {email} by email.'|t('mailcraft', { email: currentUser.email }) }}</div>
+                <div class="smalltext light mailcraft-send-test__hint">
+                    {%- set enabledTestChannels = enabledChannels|filter(c => c.supportsTestSend()) -%}
+                    {%- if enabledTestChannels|length > 1 -%}
+                        {{ 'Uses sample data and goes to your account ({email}) via {channels}.'|t('mailcraft', { email: currentUser.email, channels: testChannels|join(', ') }) }}
+                    {%- elseif enabledTestChannels|length == 1 and (enabledTestChannels|keys|first) != 'email' -%}
+                        {{ 'A test is sent to your account through {channel}.'|t('mailcraft', { channel: testChannels|first }) }}
+                    {%- else -%}
+                        {{ 'Uses sample data and goes to {email} by email.'|t('mailcraft', { email: currentUser.email }) }}
+                    {%- endif -%}
+                </div>
             </div>
         </div>
     </div>
@@ -336,6 +376,7 @@
         examples: craft.mailCraft.getTemplateExamples(),
         conditions: craft.mailCraft.getGlobalConditions,
         currentUserEmail: currentUser.email,
+        currentUserId: currentUser.id,
         systemFromEmail: mailDefaults.fromEmail,
         systemFromName: mailDefaults.fromName,
     }|json_encode|raw }});

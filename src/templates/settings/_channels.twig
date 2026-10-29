@@ -1,0 +1,61 @@
+{% import "_includes/forms" as forms %}
+
+{# @var settings \frontendservices\mailcraft\models\Settings #}
+{# @var channels array<string, \frontendservices\mailcraft\base\AbstractChannel> #}
+
+{% set channelOptions = [] %}
+{% for handle, channel in channels %}
+    {% set channelOptions = channelOptions|merge([{ label: channel.getName(), value: handle }]) %}
+{% endfor %}
+
+{{ forms.checkboxSelectField({
+    label: "Allowed channels"|t('mailcraft'),
+    instructions: "Which ways of sending are available when editing a template. Templates can use several at once. Save to see the settings of a newly allowed channel."|t('mailcraft'),
+    id: 'allowedChannels',
+    name: 'allowedChannels',
+    options: channelOptions,
+    values: settings.allowedChannels,
+    errors: settings.getErrors('allowedChannels'),
+    first: true,
+}) }}
+
+{% for handle, channel in channels %}
+    {% if handle in settings.allowedChannels or '*' in settings.allowedChannels %}
+        {% set channelErrors = {} %}
+        {% for key, messages in settings.getErrors() %}
+            {% if key starts with "channelSettings.#{handle}." %}
+                {% set channelErrors = channelErrors|merge({ (key[("channelSettings.#{handle}.")|length:]): messages }) %}
+            {% endif %}
+        {% endfor %}
+        {% set channelHtml = channel.getGlobalSettingsHtml(settings.getChannelSettings(handle), channelErrors) %}
+        <hr>
+        <h2>{{ channel.getName() }}</h2>
+        {{ forms.lightswitchField({
+            label: "Record on the Status page"|t('mailcraft'),
+            instructions: "Keep a log of every message sent through this channel, with the option to resend it."|t('mailcraft'),
+            id: "statusChannels-#{handle}",
+            name: 'statusChannels[]',
+            value: handle,
+            on: settings.isStatusChannel(handle),
+        }) }}
+        {% if channelHtml %}
+            {% namespace "channelSettings[#{handle}]" %}{{ channelHtml|raw }}{% endnamespace %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+
+<hr>
+<h2>{{ "Status page"|t('mailcraft') }}</h2>
+
+{{ forms.textField({
+    label: "Keep statuses for"|t('mailcraft'),
+    instructions: "Sent and failed entries are removed this many days after their last update. Set to 0 to keep them forever."|t('mailcraft'),
+    id: 'statusRetentionDays',
+    name: 'statusRetentionDays',
+    type: 'number',
+    min: 0,
+    unit: 'days'|t('mailcraft'),
+    size: 5,
+    value: settings.statusRetentionDays,
+    errors: settings.getErrors('statusRetentionDays'),
+}) }}

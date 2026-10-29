@@ -1,0 +1,39 @@
+{#
+ # Per-channel content override: a switch and, while it is on, a subject and body that
+ # replace the shared ones for this channel. Stored under `channels[<handle>][_content]`.
+ # Rendered as direct children of the channel tab (no extra .flex-fields wrapper).
+ #
+ # @param emailTemplate EmailTemplate
+ # @param handle        string  Channel handle
+ # @param channelName   string  Channel name
+ #}
+{% import "_includes/forms" as forms %}
+{% set overrides = emailTemplate.channels[handle]._content ?? {} %}
+{% set overrideOn = overrides.overrideContent ?? false %}
+
+{{ forms.lightswitchField({
+    label: 'Use different content for this channel'|t('mailcraft'),
+    instructions: 'Replaces the subject and body from the Content tab when sent via {channel}. A blank field uses the main one.'|t('mailcraft', { channel: channelName }),
+    id: "channels-#{handle}-_content-overrideContent",
+    name: "channels[#{handle}][_content][overrideContent]",
+    on: overrideOn,
+    fieldClass: 'mailcraft-override-switch',
+}) }}
+
+<div class="mailcraft-override{{ not overrideOn ? ' hidden' }}" data-override="{{ handle }}">
+    <div class="mailcraft-override__actions">
+        <button type="button" class="btn small" data-override-copy="{{ handle }}">{{ 'Copy from main content'|t('mailcraft') }}</button>
+    </div>
+
+    {{ forms.textField({
+        label: 'Subject'|t('mailcraft'),
+        id: "channels-#{handle}-_content-subject",
+        name: "channels[#{handle}][_content][subject]",
+        value: overrides.subject ?? '',
+        errors: emailTemplate.getErrors("channels.#{handle}._content.subject"),
+    }) }}
+
+    {% namespace "channels[#{handle}][_content]" %}
+        {{ craft.mailCraft.templateEditor(emailTemplate, 'body', overrides.body ?? '', 'Body'|t('mailcraft'), false)|raw }}
+    {% endnamespace %}
+</div>

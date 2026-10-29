@@ -7,6 +7,7 @@ use craft\base\Component;
 use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\elements\User;
+use craft\models\Site;
 use frontendservices\mailcraft\base\AbstractEventProvider;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\helpers\TemplateHelper;
@@ -115,20 +116,69 @@ class EmailService extends Component
     public function sendTestToUser(EmailTemplate $template, User $user): array
     {
         $result = ['sent' => [], 'errors' => []];
+        $sampleData = $this->getSampleData($template->event);
 
         foreach ($template->getEnabledChannels() as $channel) {
             if (!$channel->supportsTestSend()) {
                 continue;
             }
 
-            if ($channel->sendTest($template, $user)) {
+            try {
+                $content = $this->renderContentFor($template, $channel->getHandle(), $sampleData);
+            } catch (\Throwable $e) {
+                $result['errors'][] = $channel->getName() . ': ' . $e->getMessage();
+                continue;
+            }
+
+            if ($channel->sendTestWithContent($template, $user, $content)) {
                 $result['sent'][] = $channel->getName();
             } else {
-                $result['errors'][] = $channel->getName() . ': ' . ($channel->getLastError() ?? 'unknown error');
+                $result['errors'][] = $channel->getName() . ': ' . ($channel->getLastError() ?? Craft::t('mailcraft', 'unknown error'));
             }
         }
 
         return $result;
+    }
+
+    /**
+     * Whether per-channel content overrides apply: only with two or more allowed channels.
+     * With a single channel an override would just duplicate the main content, so stored
+     * overrides are ignored (and kept) until a second channel is allowed again.
+     */
+    public function overridesAvailable(): bool
+    {
+        return count(MailCraft::getInstance()->channelRegistry->getAllowedChannels()) >= 2;
+    }
+
+    /**
+     * Renders the subject and body a channel sends: the channel's content override when it is
+     * switched on (and overrides are available), the shared subject/body otherwise. A blank
+     * override field falls back to the shared one. A null handle renders the shared content.
+     *
+     * @return array{subject: string, body: string}
+     * @throws \Throwable when a field fails to render
+     */
+    public function renderContentFor(EmailTemplate $template, ?string $channelHandle, array $variables): array
+    {
+        $subject = $template->subject;
+        $body = $template->template;
+
+        if ($channelHandle !== null && $this->overridesAvailable()) {
+            $override = EmailTemplate::normalizeContentOverride($template->channels[$channelHandle]['_content'] ?? null);
+            if ($override['overrideContent']) {
+                if (trim($override['subject']) !== '') {
+                    $subject = $override['subject'];
+                }
+                if (trim($override['body']) !== '') {
+                    $body = $override['body'];
+                }
+            }
+        }
+
+        return [
+            'subject' => (string)$this->renderTemplateString($subject, $variables),
+            'body' => (string)$this->renderTemplateString($body, $variables),
+        ];
     }
 
     /**
@@ -263,11 +313,13 @@ class EmailService extends Component
 
     /**
      * Renders a template once and hands it to every channel that is enabled on the template
-     * and allowed in the plugin settings, one queue job per delivery payload.
+     * and allowed in the plugin settings, one queue job per delivery payload. A channel with a
+     * content override gets its own rendering (see renderContentFor()).
      *
      * @param int $delay Seconds to wait before sending; 0 sends as soon as the queue runs
+     * @return int The number of payloads sent or queued
      */
-    public function dispatch(EmailTemplate $template, array $variables = [], int $delay = 0): void
+    public function dispatch(EmailTemplate $template, array $variables = [], int $delay = 0): int
     {
         $content = [
             'subject' => (string)$this->renderString($template->subject, $variables),
@@ -292,33 +344,54 @@ class EmailService extends Component
                 $template->title,
                 $template->id
             ), __METHOD__);
-            return;
+            return 0;
         }
 
-        $sendDirectly = $delay <= 0 && MailCraft::getInstance()->getSettings()->sendInstantEmailsDirectly;
+        $sendInstantDirectly = MailCraft::getInstance()->getSettings()->sendInstantEmailsDirectly;
         $sendTime = time() + $delay;
         $statusService = MailCraft::getInstance()->statusService;
         $dueAt = (new \DateTime())->setTimestamp($sendTime);
 
-        foreach ($channels as $channel) {
-            foreach ($channel->buildDeliveries($template, $content, $variables) as $payload) {
-                $statusId = $statusService->record($channel, $template, $content, $payload, StatusService::STATUS_QUEUED, null, $dueAt);
+        $overridesAvailable = $this->overridesAvailable();
+        $count = 0;
 
-                if ($sendDirectly) {
+        foreach ($channels as $handle => $channel) {
+            $direct = $delay <= 0 && ($sendInstantDirectly || $channel->deliversDirectly());
+
+            $channelContent = $content;
+            if ($overridesAvailable && $template->hasContentOverride($handle)) {
+                try {
+                    $channelContent = $this->renderContentFor($template, $handle, $variables);
+                } catch (\Throwable $e) {
+                    Craft::error(sprintf(
+                        'MailCraft: content override for channel "%s" on template "%s" failed to render: %s',
+                        $handle,
+                        $template->title,
+                        $e->getMessage()
+                    ), __METHOD__);
+                    continue;
+                }
+            }
+
+            foreach ($channel->buildDeliveries($template, $channelContent, $variables) as $payload) {
+                $count++;
+                $statusId = $statusService->record($channel, $template, $channelContent, $payload, StatusService::STATUS_QUEUED, null, $dueAt);
+
+                if ($direct) {
                     if ($channel->deliver($payload)) {
                         $statusService->markSent($statusId);
                         continue;
                     }
 
-                    $directError = $channel->getLastError() ?? 'unknown error';
+                    $directError = $channel->getLastError() ?? Craft::t('mailcraft', 'unknown error');
                     $statusService->markFailed($statusId, $directError);
 
                     Craft::warning(sprintf(
                         'Direct send of "%s" via %s to %s failed (%s); queueing it instead.',
-                        $content['subject'],
+                        $channelContent['subject'],
                         $channel->getName(),
-                        $payload['to'] ?? '',
-                        $channel->getLastError() ?? 'unknown error'
+                        $channel->describeRecipient($payload),
+                        $channel->getLastError() ?? Craft::t('mailcraft', 'unknown error')
                     ), __METHOD__);
 
                     // back to queued before the push, keeping the direct-send error, so a
@@ -330,11 +403,160 @@ class EmailService extends Component
                     'channel' => $channel->getHandle(),
                     'payload' => $payload,
                     'statusId' => $statusId,
-                    'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $content['subject'],
+                    'description' => 'MailCraft Scheduler - ' . date('Y-m-d H:i:s', $sendTime) . ' - ' . $channelContent['subject'],
                 ]));
                 $statusService->setJobId($statusId, $jobId !== null ? (string)$jobId : null);
             }
         }
+
+        return $count;
+    }
+
+    /**
+     * Sends one template from code: resolves it, the `recipient`/`sender` user ids and the
+     * `site` variable, then dispatches it in that site.
+     *
+     * @param int|string|EmailTemplate $template A template element, an id, or a handle
+     * @param array $variables Twig variables; `recipient`/`sender` may be user ids, `site` a Site, id or handle
+     * @param int $delay Seconds to wait before sending
+     * @return bool Whether at least one delivery was sent or queued
+     */
+    public function send(int|string|EmailTemplate $template, array $variables = [], int $delay = 0): bool
+    {
+        $resolved = $this->resolveTemplate($template);
+        if ($resolved === null) {
+            Craft::warning(sprintf('MailCraft: template "%s" not found; nothing sent.', $template), __METHOD__);
+            return false;
+        }
+
+        if ($resolved->id && $resolved->enabled === false) {
+            Craft::warning(sprintf(
+                'MailCraft: template "%s" (#%s) is disabled; nothing sent.',
+                $resolved->title,
+                $resolved->id
+            ), __METHOD__);
+            return false;
+        }
+
+        foreach (['recipient', 'sender'] as $key) {
+            if (isset($variables[$key]) && is_int($variables[$key])) {
+                $user = Craft::$app->getUsers()->getUserById($variables[$key]);
+                if ($user === null) {
+                    Craft::warning(sprintf(
+                        'MailCraft: %s #%d of template "%s" is not a user; nothing sent.',
+                        $key,
+                        $variables[$key],
+                        $resolved->title
+                    ), __METHOD__);
+                    return false;
+                }
+                $variables[$key] = $user;
+            }
+        }
+
+        $site = null;
+        if (array_key_exists('site', $variables)) {
+            $siteOption = $variables['site'];
+            unset($variables['site']);
+
+            if ($siteOption !== null) {
+                $site = $this->resolveSite($siteOption);
+                if ($site === null) {
+                    Craft::warning(sprintf(
+                        'MailCraft: site "%s" for template "%s" not found; nothing sent.',
+                        is_scalar($siteOption) ? $siteOption : get_debug_type($siteOption),
+                        $resolved->title
+                    ), __METHOD__);
+                    return false;
+                }
+            }
+        }
+
+        $variables += TemplateHelper::getRuntimeVariables();
+
+        try {
+            $sites = Craft::$app->getSites();
+            $oldSite = $sites->getCurrentSite();
+            $oldLanguage = Craft::$app->language;
+
+            if ($site !== null) {
+                $sites->setCurrentSite($site);
+            }
+
+            try {
+                $count = $this->dispatch($resolved, $variables, $delay);
+            } finally {
+                $sites->setCurrentSite($oldSite);
+                Craft::$app->language = $oldLanguage;
+            }
+        } catch (\Throwable $e) {
+            Craft::error(sprintf(
+                'MailCraft: error sending template "%s" (#%s): %s',
+                $resolved->title,
+                $resolved->id,
+                $e->getMessage()
+            ), __METHOD__);
+            return false;
+        }
+
+        if ($count === 0) {
+            Craft::warning(sprintf(
+                'MailCraft: template "%s" (#%s) produced no deliveries; nothing sent.',
+                $resolved->title,
+                $resolved->id
+            ), __METHOD__);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * A template element, an id, or a handle. Disabled templates included. Null when nothing matches.
+     */
+    public function resolveTemplate(int|string|EmailTemplate $template): ?EmailTemplate
+    {
+        if ($template instanceof EmailTemplate) {
+            return $template;
+        }
+
+        try {
+            if (is_int($template)) {
+                return EmailTemplate::find()->id($template)->status(null)->one();
+            }
+
+            $template = trim($template);
+            if ($template === '') {
+                return null;
+            }
+
+            return EmailTemplate::find()->handle($template)->status(null)->one();
+        } catch (\Throwable $e) {
+            Craft::error('MailCraft: error loading template "' . $template . '": ' . $e->getMessage(), __METHOD__);
+            return null;
+        }
+    }
+
+    /**
+     * A Site, a site id, or a site handle. Null when nothing matches.
+     */
+    private function resolveSite(mixed $site): ?Site
+    {
+        if ($site instanceof Site) {
+            return $site;
+        }
+
+        $sites = Craft::$app->getSites();
+
+        if (is_int($site)) {
+            return $sites->getSiteById($site);
+        }
+
+        if (is_string($site) && trim($site) !== '') {
+            return $sites->getSiteByHandle(trim($site));
+        }
+
+        return null;
     }
 
     /**

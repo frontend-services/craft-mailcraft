@@ -56,6 +56,9 @@
                 {% else %}
                     <span class="mailcraft-status-badge mailcraft-status-badge--{{ status.status }}">{{ badgeLabel }}</span>
                 {% endif %}
+                {% if status.getCancelDetail() %}
+                    <span class="light">{{ status.getCancelDetail() }}</span>
+                {% endif %}
             </div>
         </div>
         <div class="data">
@@ -108,9 +111,7 @@ $('.mailcraft-confirm').on('submit', function(ev) {
 {% endblock %}
 
 {% block content %}
-    {% if status.status == 'cancelled' %}
-        <p class="light">{{ status.error ?: 'Cancelled'|t('mailcraft') }}</p>
-    {% elseif status.error %}
+    {% if status.error and status.status != 'cancelled' %}
         <h2>{{ 'Error'|t('mailcraft') }}</h2>
         <pre class="error">{{ status.error }}</pre>
     {% endif %}

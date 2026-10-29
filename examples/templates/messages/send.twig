@@ -1,0 +1,37 @@
+{#
+  Send a message to another user.
+#}
+{% extends 'messages/_layout' %}
+
+{% block content %}
+  <h1 class="text-xl font-semibold mb-4">{{ 'New message'|t('mailcraft') }}</h1>
+  <form method="post" class="space-y-4">
+    {{ csrfInput() }}
+    {{ actionInput('mailcraft/messages/send') }}
+    {{ redirectInput('messages') }}
+
+    <label class="block">
+      <span class="block text-sm mb-1">{{ 'To'|t('mailcraft') }}</span>
+      <select name="to" required class="w-full rounded border border-gray-300 p-2">
+        {# Capped at 500 users. On a large site replace this dropdown with a search field. #}
+        {% for user in craft.users().status('active').limit(500).orderBy('username') %}
+          {% if currentUser and user.id != currentUser.id %}
+            <option value="{{ user.id }}">{{ user.friendlyName }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="block text-sm mb-1">{{ 'Subject'|t('mailcraft') }}</span>
+      <input type="text" name="subject" maxlength="255" required class="w-full rounded border border-gray-300 p-2">
+    </label>
+
+    <label class="block">
+      <span class="block text-sm mb-1">{{ 'Message'|t('mailcraft') }}</span>
+      <textarea name="content" rows="6" required class="w-full rounded border border-gray-300 p-2"></textarea>
+    </label>
+
+    <button type="submit" class="rounded bg-blue-600 text-white px-4 py-2">{{ 'Send'|t('mailcraft') }}</button>
+  </form>
+{% endblock %}

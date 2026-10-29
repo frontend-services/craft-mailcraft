@@ -1,0 +1,9 @@
+{#
+  Unread badge.
+#}
+{% set unread = craft.mailCraft.unreadTotal() %}
+{% if unread > 0 %}
+  <a href="{{ url('messages') }}" class="fixed top-3 right-3 z-50 rounded-full bg-red-600 text-white text-sm px-3 py-1 shadow">
+    {{ '{n} unread'|t('mailcraft', {n: unread}) }}
+  </a>
+{% endif %}

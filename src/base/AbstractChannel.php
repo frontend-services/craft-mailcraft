@@ -10,6 +10,8 @@ use frontendservices\mailcraft\elements\EmailTemplate;
  */
 abstract class AbstractChannel
 {
+    public const RESERVED_KEYS = ['enabled', '_content'];
+
     /**
      * The reason the most recent deliver() call failed, if known.
      */
@@ -91,6 +93,15 @@ abstract class AbstractChannel
     }
 
     /**
+     * Whether delay-0 payloads are delivered during the triggering request instead of queued
+     * (a local write, not a network send). Falls back to the queue on failure.
+     */
+    public function deliversDirectly(): bool
+    {
+        return false;
+    }
+
+    /**
      * Whether "Send a test to me" can use this channel.
      */
     public function supportsTestSend(): bool
@@ -105,6 +116,20 @@ abstract class AbstractChannel
     public function sendTest(EmailTemplate $template, User $user): bool
     {
         return false;
+    }
+
+    /**
+     * Sends a test with content MailCraft already rendered. This is what "Send a test to me" calls.
+     *
+     * Channels that render their own content override this method; the default calls
+     * sendTest() and so keeps channels written before content overrides working unchanged.
+     *
+     * @param array $content `['subject' => string, 'body' => string]`, already rendered with
+     * sample data and with this channel's content override applied
+     */
+    public function sendTestWithContent(EmailTemplate $template, User $user, array $content): bool
+    {
+        return $this->sendTest($template, $user);
     }
 
     /**

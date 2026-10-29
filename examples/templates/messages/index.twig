@@ -1,0 +1,80 @@
+{#
+  List all messages
+#}
+{% extends 'messages/_layout' %}
+
+{% set perPage = 20 %}
+{% set pageParam = craft.app.request.getQueryParam('page') %}
+{% set page = pageParam is numeric ? max(1, min(pageParam, 1000000)) // 1 : 1 %}
+{% set hiddenParam = craft.app.request.getQueryParam('hidden') %}
+{% set showHidden = hiddenParam is same as('1') or hiddenParam is same as('true') %}
+
+{% set query = craft.mailCraft.messages() %}
+{% if showHidden %}{% set query = query.withHidden() %}{% endif %}
+{% set total = query.count() %}
+{% set messages = query.limit(perPage).offset((page - 1) * perPage).all() %}
+{% set pages = max(1, (total + perPage - 1) // perPage) %}
+{% if page > pages %}
+  {% set page = pages %}
+  {% set messages = query.limit(perPage).offset((page - 1) * perPage).all() %}
+{% endif %}
+
+{% block content %}
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-xl font-semibold">{{ 'Inbox'|t('mailcraft') }}</h1>
+    <div class="flex gap-4 text-sm">
+      <a href="{{ showHidden ? url('messages') : url('messages', {hidden: 1}) }}" class="underline">
+        {{ showHidden ? 'Hide hidden messages'|t('mailcraft') : 'Show hidden messages'|t('mailcraft') }}
+      </a>
+      <form method="post">
+        {{ csrfInput() }}
+        {{ actionInput('mailcraft/messages/mark-all-read') }}
+        {{ redirectInput(craft.app.request.url) }}
+        <button type="submit" class="underline">{{ 'Mark all as read'|t('mailcraft') }}</button>
+      </form>
+    </div>
+  </div>
+
+  {% for message in messages %}
+    <div class="mb-4 {{ message.isRead ? 'opacity-70' : 'border-l-4 border-blue-500' }} {{ message.hidden ? 'italic' : '' }}">
+      <a href="{{ url('messages/' ~ message.id) }}" class="block">
+        <span class="{{ message.isRead ? '' : 'font-bold' }}">
+          {% if message.pinned %}<span title="{{ 'Pinned'|t('mailcraft') }}" aria-hidden="true">&#9733;</span><span class="sr-only">{{ 'Pinned'|t('mailcraft') }}</span>{% endif %}
+          {{ message.subject }}
+        </span>
+        <span class="block text-sm text-gray-500">
+          {{ message.from ? message.from.friendlyName : (message.fromId ? 'Deleted user'|t('mailcraft') : 'System'|t('mailcraft')) }}
+          &middot; {{ message.dateCreated|date('short') }}
+          {% if message.typeLabel %}&middot; {{ message.typeLabel }}{% endif %}
+        </span>
+      </a>
+      <div class="flex gap-3 text-sm mt-1">
+        {% set actions = [
+          {action: message.isRead ? 'mark-unread' : 'mark-read', label: message.isRead ? 'Mark unread'|t('mailcraft') : 'Mark read'|t('mailcraft')},
+          {action: message.pinned ? 'unpin' : 'pin', label: message.pinned ? 'Unpin'|t('mailcraft') : 'Pin'|t('mailcraft')},
+          {action: message.hidden ? 'unhide' : 'hide', label: message.hidden ? 'Unhide'|t('mailcraft') : 'Hide'|t('mailcraft')},
+          {action: 'delete', label: 'Delete'|t('mailcraft')},
+        ] %}
+        {% for a in actions %}
+          <form method="post">
+            {{ csrfInput() }}
+            {{ actionInput('mailcraft/messages/' ~ a.action) }}
+            {{ redirectInput(craft.app.request.url) }}
+            <input type="hidden" name="id" value="{{ message.id }}">
+            <button type="submit" class="underline" aria-label="{{ a.label }}: {{ message.subject }}">{{ a.label }}</button>
+          </form>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <p class="text-gray-500">{{ 'No messages.'|t('mailcraft') }}</p>
+  {% endfor %}
+
+  {% if pages > 1 %}
+    <nav class="flex gap-4 mt-6 text-sm">
+      {% if page > 1 %}<a href="{{ url('messages', {page: page - 1, hidden: showHidden ? 1 : null}) }}">&larr; {{ 'Newer'|t('mailcraft') }}</a>{% endif %}
+      <span>{{ page }} / {{ pages }}</span>
+      {% if page < pages %}<a href="{{ url('messages', {page: page + 1, hidden: showHidden ? 1 : null}) }}">{{ 'Older'|t('mailcraft') }} &rarr;</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

@@ -74,6 +74,27 @@ class Status extends Model
     }
 
     /**
+     * Get the cancelling reason to show on Status page
+     */
+    public function getCancelDetail(): ?string
+    {
+        if ($this->status !== StatusService::STATUS_CANCELLED || !$this->error) {
+            return null;
+        }
+
+        $label = Craft::t('mailcraft', 'Cancelled');
+        $reason = trim($this->error);
+        if ($reason === $label) {
+            return null;
+        }
+        if (str_starts_with($reason, $label . ' ')) {
+            return trim(substr($reason, strlen($label)));
+        }
+
+        return $reason;
+    }
+
+    /**
      * Returns the decoded payload.
      */
     public function getPayload(): array

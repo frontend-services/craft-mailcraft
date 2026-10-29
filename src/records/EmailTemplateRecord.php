@@ -8,6 +8,7 @@ use craft\db\ActiveRecord;
  * Email template record.
  *
  * @property int $id
+ * @property string|null $handle
  * @property string $subject
  * @property string $event
  * @property int|null $delay

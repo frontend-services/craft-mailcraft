@@ -201,12 +201,16 @@ class EmailTemplatesController extends Controller
 
         $emailService = MailCraft::getInstance()->emailService;
         $sampleData = $emailService->getSampleData($emailTemplate->event);
+        $channel = $this->request->getBodyParam('channel');
+        $channel = is_string($channel) && $channel !== '' ? $channel : null;
 
         try {
+            $content = $emailService->renderContentFor($emailTemplate, $channel, $sampleData);
+
             return $this->asJson([
                 'success' => true,
-                'subject' => $emailService->renderTemplateString($emailTemplate->subject, $sampleData),
-                'html' => $this->previewHtml($emailService->renderTemplateString($emailTemplate->template, $sampleData)),
+                'subject' => $content['subject'],
+                'html' => $this->previewHtml($content['body']),
             ]);
         } catch (Throwable $e) {
             return $this->asJson([
@@ -348,6 +352,7 @@ class EmailTemplatesController extends Controller
         }
 
         $emailTemplate->title = $this->request->getBodyParam('title');
+        $emailTemplate->handle = $this->request->getBodyParam('handle', $emailTemplate->handle);
         $emailTemplate->subject = $this->request->getBodyParam('subject');
         $emailTemplate->event = $this->request->getBodyParam('event');
         $emailTemplate->template = $this->request->getBodyParam('template');
@@ -370,6 +375,15 @@ class EmailTemplatesController extends Controller
                     continue;
                 }
                 $settings['enabled'] = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                if (array_key_exists('_content', $settings)) {
+                    $rawSubject = is_array($settings['_content']) ? ($settings['_content']['subject'] ?? null) : null;
+                    $settings['_content'] = EmailTemplate::normalizeContentOverride($settings['_content']);
+                    if (is_scalar($rawSubject)) {
+                        $settings['_content']['subject'] = (string)$rawSubject;
+                    }
+                } elseif (isset($channels[$handle]['_content'])) {
+                    $settings['_content'] = $channels[$handle]['_content'];
+                }
                 $channels[$handle] = $settings;
             }
             $emailTemplate->channels = $channels;

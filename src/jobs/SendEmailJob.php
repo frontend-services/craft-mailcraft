@@ -69,7 +69,7 @@ class SendEmailJob extends BaseJob implements RetryableJobInterface
                 'MailCraft could not send "%s" via %s to %s%s',
                 $payload['subject'] ?? '',
                 $channel->getName(),
-                $payload['to'] ?? '',
+                $channel->describeRecipient($payload),
                 $reason ? ': ' . $reason : '. See the Craft log for details.'
             );
             $statusService->markFailed($this->statusId, $message);

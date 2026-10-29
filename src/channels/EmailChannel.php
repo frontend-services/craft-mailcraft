@@ -134,10 +134,32 @@ class EmailChannel extends AbstractChannel
     {
         $emailService = MailCraft::getInstance()->emailService;
 
-        $payload = $emailService->buildEmailVariables($template, $emailService->getSampleData($template->event));
-        $payload['to'] = $user->email;
-        $payload['toName'] = $user->fullName ?: null;
-        $payload['subject'] = '[' . Craft::t('mailcraft', 'Test') . '] ' . ($payload['subject'] ?? '');
+        try {
+            $content = $emailService->renderContentFor($template, $this->getHandle(), $emailService->getSampleData($template->event));
+        } catch (\Throwable $e) {
+            $this->lastError = $e->getMessage();
+            return false;
+        }
+
+        return $this->sendTestWithContent($template, $user, $content);
+    }
+
+    public function sendTestWithContent(EmailTemplate $template, User $user, array $content): bool
+    {
+        $this->lastError = null;
+        $variables = MailCraft::getInstance()->emailService->getSampleData($template->event);
+
+        $payload = [
+            'subject' => '[' . Craft::t('mailcraft', 'Test') . '] ' . ($content['subject'] ?? ''),
+            'to' => $user->email,
+            'toName' => $user->fullName ?: null,
+            'cc' => $this->render($template->cc, $variables),
+            'bcc' => $this->render($template->bcc, $variables),
+            'from' => $this->render($template->from, $variables),
+            'fromName' => $this->render($template->fromName, $variables),
+            'replyTo' => $this->render($template->replyTo, $variables),
+            'message' => (string)($content['body'] ?? ''),
+        ];
 
         return $this->deliver($payload);
     }

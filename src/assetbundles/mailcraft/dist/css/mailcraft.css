@@ -122,6 +122,16 @@
 }
 
 /* --- Edit page: sidebar --- */
+.mailcraft-channel-summary__title {
+    margin: 0;
+    padding: 6px 0 2px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-600, #596673);
+}
+
 .mailcraft-summary .value code {
     font-size: 12px;
     word-break: break-all;
@@ -180,17 +190,40 @@
 
 #tabs a.mailcraft-channel-on .tab-label::after {
     content: '';
+    order: 1;
     display: inline-block;
+    flex: 0 0 auto;
     width: 8px;
     height: 8px;
     margin-left: 6px;
     border-radius: 50%;
     background: var(--enabled-color, #27ab83);
-    vertical-align: middle;
 }
 
-.mailcraft-channel--off > .field:not(.mailcraft-channel-switch) {
+#tabs a.mailcraft-channel-override .tab-label::before {
+    content: "✎";
+    order: 2;
+    margin-left: 6px;
+}
+
+.mailcraft-channel--off > .field:not(.mailcraft-channel-switch),
+.mailcraft-channel--off > .mailcraft-override {
     opacity: 0.5;
+}
+
+.mailcraft-override {
+    display: flex;
+    flex-direction: column;
+    gap: var(--row-gap, 24px);
+}
+
+.mailcraft-override > .field {
+    margin-block: 0 !important;
+    min-width: 0;
+}
+
+.mailcraft-preview__channel {
+    margin-left: auto;
 }
 
 .mailcraft-no-channel-warning {
