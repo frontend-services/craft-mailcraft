@@ -49,7 +49,7 @@
 
 {{ forms.textField({
     label: "Keep statuses for"|t('mailcraft'),
-    instructions: "Sent and failed entries are removed this many days after their last update. Set to 0 to keep them forever."|t('mailcraft'),
+    instructions: "Sent, failed and cancelled entries are removed this many days after their last update. Queued entries are always kept. Set to 0 to keep them forever."|t('mailcraft'),
     id: 'statusRetentionDays',
     name: 'statusRetentionDays',
     type: 'number',

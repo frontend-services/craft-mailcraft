@@ -177,7 +177,7 @@ return [
     'Sending message' => 'Nachricht wird gesendet',
     'Sends when' => 'Wird gesendet, wenn',
     'Sent' => 'Gesendet',
-    'Sent and failed entries are removed this many days after their last update. Set to 0 to keep them forever.' => 'Gesendete und fehlgeschlagene Einträge werden so viele Tage nach ihrer letzten Aktualisierung entfernt. 0 bewahrt sie dauerhaft auf.',
+    'Sent, failed and cancelled entries are removed this many days after their last update. Queued entries are always kept. Set to 0 to keep them forever.' => 'Gesendete, fehlgeschlagene und abgebrochene Einträge werden so viele Tage nach ihrer letzten Aktualisierung entfernt. Einträge in der Warteschlange bleiben immer erhalten. 0 bewahrt sie dauerhaft auf.',
     'Skipped {reasons}' => 'Übersprungen: {reasons}',
     'Sort by' => 'Sortieren nach',
     'Status' => 'Status',
