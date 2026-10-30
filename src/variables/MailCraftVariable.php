@@ -55,11 +55,11 @@ class MailCraftVariable
         ];
 
         foreach ($events as $group => $groupEvents) {
-            $options[] = ['optgroup' => $group];
+            $options[] = ['optgroup' => Craft::t('mailcraft', (string)$group)];
 
             foreach ($groupEvents as $key => $details) {
                 $options[] = [
-                    'label' => $details['label'],
+                    'label' => Craft::t('mailcraft', (string)$details['label']),
                     'value' => $key,
                 ];
             }
@@ -380,7 +380,7 @@ EOT;
         $general = TemplateHelper::getGeneralVariables();
         $out = [];
         foreach (MailCraft::getInstance()->eventRegistry->getProviders() as $id => $provider) {
-            $variables = $provider->getTemplateVariables();
+            $variables = $this->translateVariables($provider->getTemplateVariables());
             $out[$id] = array_diff_key($variables, $general) + array_intersect_key($variables, $general);
         }
         return $out;
@@ -405,9 +405,29 @@ EOT;
     {
         $out = [];
         foreach (MailCraft::getInstance()->eventRegistry->getProviders() as $id => $provider) {
-            $out[$id] = $provider->getEventDetails()['label'] ?? $id;
+            $out[$id] = Craft::t('mailcraft', (string)($provider->getEventDetails()['label'] ?? $id));
         }
         return $out;
+    }
+
+    private function translateVariables(array $variables): array
+    {
+        foreach ($variables as $key => $definition) {
+            if (!is_array($definition)) {
+                continue;
+            }
+            if (isset($definition['description']) && is_string($definition['description'])) {
+                $variables[$key]['description'] = Craft::t('mailcraft', $definition['description']);
+            }
+            foreach ((array)($definition['fields'] ?? []) as $field => $fieldDefinition) {
+                if (is_string($fieldDefinition)) {
+                    $variables[$key]['fields'][$field] = Craft::t('mailcraft', $fieldDefinition);
+                } elseif (is_array($fieldDefinition) && isset($fieldDefinition['label']) && is_string($fieldDefinition['label'])) {
+                    $variables[$key]['fields'][$field]['label'] = Craft::t('mailcraft', $fieldDefinition['label']);
+                }
+            }
+        }
+        return $variables;
     }
 
     /**

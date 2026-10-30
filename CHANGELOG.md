@@ -1,5 +1,9 @@
 # Release Notes for MailCraft
 
+## 1.6.1 - 2026-10-30
+- Sample config.php
+- German translation
+
 ## 1.6.0 - 2026-10-28
 - Private messages
 - Per-channel content overrides
