@@ -4,7 +4,6 @@
 #}
 {% extends 'messages/_layout' %}
 
-{# Logged-in users only. Guests are sent to the login page and brought back here afterwards. #}
 {% requireLogin %}
 
 {% set messageId = id|default(0)|abs %}
@@ -16,7 +15,7 @@
 {% endif %}
 {% if not message %}{% exit 404 %}{% endif %}
 
-{# Mark the message read (and seen). Top-level so the badge in the layout already shows the new counts. #}
+{# Mark the message read. Marking as read automatically marks message as seen also. #}
 {% if not isSent and not message.isRead %}{% do craft.mailCraft.markRead(message) %}{% endif %}
 
 {% set settings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}

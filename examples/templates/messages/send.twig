@@ -3,7 +3,6 @@
 #}
 {% extends 'messages/_layout' %}
 
-{# Logged-in users only. Guests are sent to the login page and brought back here afterwards. #}
 {% requireLogin %}
 
 {% block content %}
@@ -16,7 +15,7 @@
     <label class="block">
       <span class="block text-sm mb-1">{{ 'To'|t('mailcraft') }}</span>
       <select name="to" required class="w-full rounded border border-gray-300 p-2">
-        {# Capped at 500 users. On a large site replace this dropdown with a search field. #}
+        {# Capped at 500 users for this demo code. On a large site replace this dropdown with a search field. #}
         {% for user in craft.users().status('active').limit(500).orderBy('username') %}
           {% if currentUser and user.id != currentUser.id %}
             <option value="{{ user.id }}">{{ user.friendlyName }}</option>
