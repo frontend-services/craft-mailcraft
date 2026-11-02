@@ -3,6 +3,9 @@
 #}
 {% extends 'messages/_layout' %}
 
+{# Logged-in users only. Guests are sent to the login page and brought back here afterwards. #}
+{% requireLogin %}
+
 {% set perPage = 20 %}
 {% set pageParam = craft.app.request.getQueryParam('page') %}
 {% set page = pageParam is numeric ? max(1, min(pageParam, 1000000)) // 1 : 1 %}
@@ -18,6 +21,9 @@
   {% set page = pages %}
   {% set messages = query.limit(perPage).offset((page - 1) * perPage).all() %}
 {% endif %}
+
+{# Clear the "new" count. Top-level, outside any block, so it runs before the layout renders the badge. Rows listed below still get the "New" tag on this visit. Never put this inside {% cache %}. #}
+{% do craft.mailCraft.markAllSeen() %}
 
 {% block content %}
   <div class="flex items-center justify-between mb-4">
@@ -40,6 +46,7 @@
       <a href="{{ url('messages/' ~ message.id) }}" class="block">
         <span class="{{ message.isRead ? '' : 'font-bold' }}">
           {% if message.pinned %}<span title="{{ 'Pinned'|t('mailcraft') }}" aria-hidden="true">&#9733;</span><span class="sr-only">{{ 'Pinned'|t('mailcraft') }}</span>{% endif %}
+          {% if message.isNew %}<span class="rounded bg-blue-600 text-white text-xs px-2 py-0.5 mr-1">{{ 'New'|t('mailcraft') }}</span>{% endif %}
           {{ message.subject }}
         </span>
         <span class="block text-sm text-gray-500">

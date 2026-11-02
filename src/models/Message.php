@@ -16,6 +16,8 @@ use frontendservices\mailcraft\records\MessageRecord;
  * @property-read User|null $to
  * @property-read User|null $from
  * @property-read bool $isRead
+ * @property-read bool $isSeen
+ * @property-read bool $isNew
  * @property-read bool $isExpired
  * @property-read string $typeLabel
  */
@@ -32,6 +34,7 @@ class Message extends Model
     public bool $pinned = false;
     public bool $hidden = false;
     public ?DateTime $dateRead = null;
+    public ?DateTime $dateSeen = null;
     public ?DateTime $dateExpires = null;
     public ?string $meta1 = null;
     public ?string $meta2 = null;
@@ -69,6 +72,7 @@ class Message extends Model
         $model->pinned = (bool)$record->pinned;
         $model->hidden = (bool)$record->hidden;
         $model->dateRead = DateTimeHelper::toDateTime($record->dateRead) ?: null;
+        $model->dateSeen = DateTimeHelper::toDateTime($record->dateSeen) ?: null;
         $model->dateExpires = DateTimeHelper::toDateTime($record->dateExpires) ?: null;
         $model->meta1 = $record->meta1 !== null ? (string)$record->meta1 : null;
         $model->meta2 = $record->meta2 !== null ? (string)$record->meta2 : null;
@@ -134,6 +138,32 @@ class Message extends Model
     public function getIsRead(): bool
     {
         return $this->dateRead !== null;
+    }
+
+    /**
+     * Whether the recipient has seen the message in the inbox (`dateSeen` is set).
+     */
+    public function getIsSeen(): bool
+    {
+        return $this->dateSeen !== null;
+    }
+
+    /**
+     * Whether the message arrived since the recipient's last inbox visit: unseen, or marked seen by
+     * the current request (so an inbox page can clear the count at the top and still tag the rows it lists).
+     */
+    public function getIsNew(): bool
+    {
+        if ($this->dateSeen === null) {
+            return true;
+        }
+        if ($this->toId === null) {
+            return false;
+        }
+
+        $marker = MailCraft::getInstance()->privateMessages->getSeenMarker($this->toId);
+
+        return $marker !== null && $this->dateSeen >= $marker;
     }
 
     /**

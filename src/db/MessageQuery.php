@@ -51,6 +51,11 @@ class MessageQuery extends Query
     public ?bool $read = null;
 
     /**
+     * @var bool|null true = seen only, false = unseen only, null = both
+     */
+    public ?bool $seen = null;
+
+    /**
      * @var bool|null Pinned state to filter by, null = both
      */
     public ?bool $pinned = null;
@@ -152,6 +157,26 @@ class MessageQuery extends Query
     public function read(): static
     {
         $this->read = true;
+
+        return $this;
+    }
+
+    /**
+     * Only messages the recipient has not seen in the inbox yet.
+     */
+    public function unseen(): static
+    {
+        $this->seen = false;
+
+        return $this;
+    }
+
+    /**
+     * Only seen messages.
+     */
+    public function seen(): static
+    {
+        $this->seen = true;
 
         return $this;
     }
@@ -294,6 +319,10 @@ class MessageQuery extends Query
 
         if ($this->read !== null) {
             $this->andWhere($this->read ? ['not', ['dateRead' => null]] : ['dateRead' => null]);
+        }
+
+        if ($this->seen !== null) {
+            $this->andWhere($this->seen ? ['not', ['dateSeen' => null]] : ['dateSeen' => null]);
         }
 
         if ($this->pinned !== null) {

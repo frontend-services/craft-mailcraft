@@ -16,19 +16,4 @@
   <h2 class="text-lg font-semibold mb-2">{{ message.subject }}</h2>
   {# |raw is safe here: content is purified when the message is written. Never output other user input with |raw. #}
   <div class="prose">{{ message.content|raw }}</div>
-
-  {# Only the recipient marks a message read; for a sent message the action would ignore the id and the auto-submit would loop. #}
-  {% if not isSent and not message.isRead %}
-    <form method="post" id="mark-read-{{ message.id }}">
-      {{ csrfInput() }}
-      {{ actionInput('mailcraft/messages/mark-read') }}
-      {{ redirectInput(craft.app.request.url) }}
-      <input type="hidden" name="id" value="{{ message.id }}">
-      <noscript><button type="submit" class="mt-3 text-sm underline">{{ 'Mark as read'|t('mailcraft') }}</button></noscript>
-    </form>
-    {# Auto-submit, only while unread, so a read message does not post and reload on every view. #}
-    <script>
-      document.getElementById('mark-read-{{ message.id }}').submit();
-    </script>
-  {% endif %}
 </article>

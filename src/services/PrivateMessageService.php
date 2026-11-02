@@ -27,6 +27,12 @@ class PrivateMessageService extends Component
     private ?string $_lastError = null;
 
     /**
+     * @var array<int,DateTime> `userId => DateTime`: when this request last stamped `dateSeen` for the
+     * user. See `Message::getIsNew()`.
+     */
+    private array $_seenMarkers = [];
+
+    /**
      * Sends a private message to one or more users through `MailCraft::send()`, one send per recipient.
      *
      * Options: 
@@ -237,6 +243,7 @@ class PrivateMessageService extends Component
                 $record->pinned = $message->pinned;
                 $record->hidden = $message->hidden;
                 $record->dateRead = Db::prepareDateForDb($message->dateRead);
+                $record->dateSeen = Db::prepareDateForDb($message->dateSeen);
                 $record->dateExpires = Db::prepareDateForDb($message->dateExpires);
                 $record->meta1 = $message->meta1;
                 $record->meta2 = $message->meta2;
@@ -282,15 +289,23 @@ class PrivateMessageService extends Component
     }
 
     /**
-     * Marks a message read (keeping the first read time) or unread.
+     * Marks a message read (keeping the first read time) or unread. Marking read also marks seen.
      */
     public function markRead(int|Message $message, bool $read = true): bool
     {
         if ($read) {
             $now = new DateTime();
             $result = $this->updateOne($message, ['dateRead' => Db::prepareDateForDb($now)], ['dateRead' => null]);
-            if ($result && $message instanceof Message && $message->dateRead === null) {
-                $message->dateRead = $now;
+            if ($result) {
+                $this->updateOne($message, ['dateSeen' => Db::prepareDateForDb($now)], ['dateSeen' => null]);
+            }
+            if ($result && $message instanceof Message) {
+                if ($message->dateRead === null) {
+                    $message->dateRead = $now;
+                }
+                if ($message->dateSeen === null) {
+                    $message->dateSeen = $now;
+                }
             }
         } else {
             $result = $this->updateOne($message, ['dateRead' => null]);
@@ -329,7 +344,7 @@ class PrivateMessageService extends Component
     }
 
     /**
-     * Marks every unread message of a user read.
+     * Marks every unread message of a user read. Marking read also marks seen.
      *
      * @return int Rows updated
      */
@@ -337,7 +352,7 @@ class PrivateMessageService extends Component
     {
         $userId = $user instanceof User ? (int)$user->id : $user;
 
-        return (int)$this->runInTransaction(function() use ($userId) {
+        $n = (int)$this->runInTransaction(function() use ($userId) {
             return Db::update(MessageRecord::tableName(), [
                 'dateRead' => Db::prepareDateForDb(new DateTime()),
             ], [
@@ -345,6 +360,80 @@ class PrivateMessageService extends Component
                 'dateRead' => null,
             ]);
         }, 0, __METHOD__);
+
+        $this->markAllSeen($userId);
+
+        return $n;
+    }
+
+    /**
+     * Marks the given messages seen, limited to those the user received and not seen yet
+     *
+     * @param array<int|Message> $messages Ids and/or models
+     * @return int Rows updated
+     */
+    public function markSeen(array $messages, User|int $user): int
+    {
+        $userId = $user instanceof User ? (int)$user->id : $user;
+
+        $ids = [];
+        foreach ($messages as $message) {
+            $id = $message instanceof Message ? $this->resolveId($message) : (is_numeric($message) ? (int)$message : null);
+            if ($id !== null) {
+                $ids[$id] = $id;
+            }
+        }
+        if ($ids === []) {
+            return 0;
+        }
+
+        $now = $this->seenNow();
+        $n = $this->updateForUser($userId, array_values($ids), ['dateSeen' => Db::prepareDateForDb($now)], ['dateSeen' => null]);
+        if ($n > 0) {
+            $this->rememberSeenMarker($userId, $now);
+            foreach ($messages as $message) {
+                if ($message instanceof Message && $message->toId === $userId && $message->dateSeen === null) {
+                    $message->dateSeen = $now;
+                }
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * Marks every unseen message of a user seen.
+     *
+     * @return int Rows updated
+     */
+    public function markAllSeen(User|int $user): int
+    {
+        $userId = $user instanceof User ? (int)$user->id : $user;
+        $now = $this->seenNow();
+
+        $n = (int)$this->runInTransaction(function() use ($userId, $now) {
+            return Db::update(MessageRecord::tableName(), [
+                'dateSeen' => Db::prepareDateForDb($now),
+            ], [
+                'toId' => $userId,
+                'dateSeen' => null,
+            ]);
+        }, 0, __METHOD__);
+
+        if ($n > 0) {
+            $this->rememberSeenMarker($userId, $now);
+        }
+
+        return $n;
+    }
+
+    /**
+     * When this request last stamped `dateSeen` for the user (through `markSeen()` or
+     * `markAllSeen()`), or null. `Message::getIsNew()` uses it to survive the request.
+     */
+    public function getSeenMarker(int $userId): ?DateTime
+    {
+        return $this->_seenMarkers[$userId] ?? null;
     }
 
     /**
@@ -352,19 +441,20 @@ class PrivateMessageService extends Component
      *
      * @param int[] $ids
      * @param array $columns `column => value`
+     * @param array $extraCondition Narrows the update further, for example `['dateSeen' => null]`
      * @return int Rows updated
      */
-    public function updateForUser(int $userId, array $ids, array $columns): int
+    public function updateForUser(int $userId, array $ids, array $columns, array $extraCondition = []): int
     {
         if ($ids === [] || $columns === []) {
             return 0;
         }
 
-        return (int)$this->runInTransaction(function() use ($userId, $ids, $columns) {
-            return Db::update(MessageRecord::tableName(), $columns, [
+        return (int)$this->runInTransaction(function() use ($userId, $ids, $columns, $extraCondition) {
+            return Db::update(MessageRecord::tableName(), $columns, array_merge([
                 'id' => $ids,
                 'toId' => $userId,
-            ]);
+            ], $extraCondition));
         }, 0, __METHOD__);
     }
 
@@ -450,6 +540,25 @@ class PrivateMessageService extends Component
         }
 
         return $default;
+    }
+
+    /**
+     * Now at second precision, so the value written and the marker compare exactly against what
+     * the database stores.
+     */
+    private function seenNow(): DateTime
+    {
+        return new DateTime('@' . time());
+    }
+
+    /**
+     * Records the request marker for a user; the first call wins.
+     */
+    private function rememberSeenMarker(int $userId, DateTime $at): void
+    {
+        if (!isset($this->_seenMarkers[$userId])) {
+            $this->_seenMarkers[$userId] = $at;
+        }
     }
 
     /**

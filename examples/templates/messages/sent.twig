@@ -3,6 +3,9 @@
 #}
 {% extends 'messages/_layout' %}
 
+{# Logged-in users only. Guests are sent to the login page and brought back here afterwards. #}
+{% requireLogin %}
+
 {% set perPage = 20 %}
 {% set pageParam = craft.app.request.getQueryParam('page') %}
 {% set page = pageParam is numeric ? max(1, min(pageParam, 1000000)) // 1 : 1 %}

@@ -2,6 +2,7 @@
 
 namespace frontendservices\mailcraft;
 
+use craft\elements\User;
 use frontendservices\mailcraft\db\MessageQuery;
 use frontendservices\mailcraft\models\Message;
 
@@ -32,6 +33,19 @@ final class PrivateMessaging
     public static function markRead(int|Message $message, bool $read = true): bool
     {
         return MailCraft::getInstance()->privateMessages->markRead($message, $read);
+    }
+
+    /**
+     * @param array<int|Message> $messages
+     */
+    public static function markSeen(array $messages, User|int $user): int
+    {
+        return MailCraft::getInstance()->privateMessages->markSeen($messages, $user);
+    }
+
+    public static function markAllSeen(User|int $user): int
+    {
+        return MailCraft::getInstance()->privateMessages->markAllSeen($user);
     }
 
     public static function setPinned(int|Message $message, bool $pinned = true): bool

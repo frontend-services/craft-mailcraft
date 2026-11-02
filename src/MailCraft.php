@@ -66,7 +66,7 @@ use yii\web\Response;
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.4.0';
+    public string $schemaVersion = '1.5.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;

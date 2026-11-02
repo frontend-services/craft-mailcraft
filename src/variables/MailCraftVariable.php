@@ -476,6 +476,16 @@ EOT;
     }
 
     /**
+     * Number of visible messages a user received since their last inbox visit.
+     *
+     * @param User|int|null $user
+     */
+    public function unseenTotal($user = null): int
+    {
+        return $this->messages($user)->unseen()->count();
+    }
+
+    /**
      * One message by id, only when the user (default: the logged-in user) received it.
      *
      * @param User|int|null $user
@@ -509,6 +519,88 @@ EOT;
     public function sentMessage(int $id, $user = null): ?Message
     {
         return $this->sentMessages($user)->id($id)->one();
+    }
+
+    // Writes from Twig, for example `{% do craft.mailCraft.markAllSeen() %}`. Do not put these inside `{% cache %}`.
+
+    /**
+     * Marks every message of the logged-in user seen (clears the "new" count).
+     *
+     * @return int Rows updated
+     */
+    public function markAllSeen(): int
+    {
+        $userId = $this->resolveUserId(null);
+        if ($userId === null) {
+            return 0;
+        }
+
+        return MailCraft::getInstance()->privateMessages->markAllSeen($userId);
+    }
+
+    /**
+     * Marks the given messages of the logged-in user seen.
+     *
+     * @param Message|int|array<Message|int> $messages A message, an id, or a list of either
+     * @return int Rows updated
+     */
+    public function markSeen($messages): int
+    {
+        $userId = $this->resolveUserId(null);
+        if ($userId === null) {
+            return 0;
+        }
+
+        $list = [];
+        foreach (is_array($messages) ? $messages : [$messages] as $message) {
+            if ($message instanceof Message || is_int($message) || (is_string($message) && is_numeric($message))) {
+                $list[] = $message instanceof Message ? $message : (int)$message;
+            }
+        }
+
+        return MailCraft::getInstance()->privateMessages->markSeen($list, $userId);
+    }
+
+    /**
+     * Marks every message of the logged-in user read (and seen).
+     *
+     * @return int Rows updated
+     */
+    public function markAllRead(): int
+    {
+        $userId = $this->resolveUserId(null);
+        if ($userId === null) {
+            return 0;
+        }
+
+        return MailCraft::getInstance()->privateMessages->markAllRead($userId);
+    }
+
+    /**
+     * Marks one message of the logged-in user read (and seen). A passed model is updated in place.
+     *
+     * @param Message|int $message A message or an id
+     * @return bool False for a guest, an unknown id, or a message the user did not receive
+     */
+    public function markRead($message): bool
+    {
+        $userId = $this->resolveUserId(null);
+        if ($userId === null) {
+            return false;
+        }
+
+        if (!$message instanceof Message) {
+            $id = is_int($message) || (is_string($message) && is_numeric($message)) ? (int)$message : 0;
+            $message = $id > 0 ? $this->message($id, $userId) : null;
+            if ($message === null) {
+                return false;
+            }
+        }
+        if ($message->toId !== $userId) {
+            return false;
+        }
+
+        return MailCraft::getInstance()->privateMessages->markRead($message);
     }
 
     /**

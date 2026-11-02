@@ -112,6 +112,7 @@ class Install extends Migration
             'pinned' => $this->boolean()->notNull()->defaultValue(false),
             'hidden' => $this->boolean()->notNull()->defaultValue(false),
             'dateRead' => $this->dateTime(),
+            'dateSeen' => $this->dateTime(),
             'dateExpires' => $this->dateTime(),
             'meta1' => $this->string(255),
             'meta2' => $this->string(255),
@@ -153,6 +154,7 @@ class Install extends Migration
         }
 
         $this->createIndex(null, '{{%mailcraft_messages}}', 'toId,hidden,pinned,dateCreated', false);
+        $this->createIndex(null, '{{%mailcraft_messages}}', 'toId,dateSeen', false);
         foreach (['fromId', 'type', 'dateExpires', 'meta1', 'meta2', 'meta3', 'meta4', 'meta5'] as $column) {
             $this->createIndex(null, '{{%mailcraft_messages}}', $column, false);
         }

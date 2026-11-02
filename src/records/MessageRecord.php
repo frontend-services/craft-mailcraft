@@ -18,6 +18,7 @@ use craft\db\ActiveRecord;
  * @property bool $pinned
  * @property bool $hidden
  * @property string|null $dateRead
+ * @property string|null $dateSeen
  * @property string|null $dateExpires
  * @property string|null $meta1
  * @property string|null $meta2

@@ -58,12 +58,24 @@ The "New message" page and the reply form only work when **Allow sending from th
 | File | Role | API it shows |
 |---|---|---|
 | `_layout.twig` | Page frame: nav (Inbox, Sent, New message), the badge, and flash messages. | The controller actions redirect back and leave a Craft flash message in the session (`success` for "Message sent." / "Updated.", `error` for a refused send) |
-| `_badge.twig` | Unread counter, rendered only when the user has unread messages. | `craft.mailCraft.unreadTotal()` |
-| `index.twig` | List of received messages with message actions. | `craft.mailCraft.messages()` |
+| `_badge.twig` | New and unread counters, rendered only when one of them is above zero. | `craft.mailCraft.unseenTotal()`, `craft.mailCraft.unreadTotal()` |
+| `index.twig` | List of received messages with message actions; clears the new count and tags new rows. | `craft.mailCraft.messages()`, `craft.mailCraft.markAllSeen()`, `message.isNew` |
 | `_message.twig` | Single message, included by `show.twig`. | `message`, `content` |
-| `show.twig` | Loads the message from the URL id and shows the reply form. | `craft.mailCraft.message(id)`, `craft.mailCraft.sentMessage(id)` |
+| `show.twig` | Loads the message from the URL id, marks it read and shows the reply form. | `craft.mailCraft.message(id)`, `craft.mailCraft.sentMessage(id)`, `craft.mailCraft.markRead(message)` |
 | `sent.twig` | List of sent messages. | `craft.mailCraft.sentMessages()` |
 | `send.twig` | New message form. | POST to `mailcraft/messages/send` |
+
+### Seen vs read
+
+A message is **read** when the user opened it (`dateRead`). It is **seen** when the user has been to the inbox since it arrived (`dateSeen`). The difference is what lets a site say "3 new since your last visit" without forcing the user to open everything. Marking read also marks seen; marking unread does not un-see.
+
+Visiting the inbox clears the new count. The example puts
+
+```twig
+{% do craft.mailCraft.markAllSeen() %}
+```
+
+at the top of `index.twig`, outside any block. Twig runs a child template's top-level tags before the layout renders, so the badge in the layout already shows zero. The rows that were just cleared still report `isNew` on that same visit, so they get the "New" tag once; on the next page load it is gone. Do not place the line inside `{% cache %}`. JavaScript or a form can post to `mailcraft/messages/mark-all-seen` instead.
 
 
 ## 5. Sending from PHP (for building a custom messaging system)
@@ -118,7 +130,7 @@ Without a template (uses the built-in simple message, or the template named by `
 | `site` | Site, id or handle to render in |
 | `delay` | Seconds |
 
-`PrivateMessaging` also has `query()`, `markRead()`, `setPinned()`, `setHidden()` and `delete()` functions.
+`PrivateMessaging` also has `query()`, `markRead()`, `markSeen()`, `markAllSeen()`, `setPinned()`, `setHidden()` and `delete()` functions.
 
 ## 6. Content overrides
 
@@ -133,10 +145,17 @@ A template has one subject and body (the Content tab) that every channel sends. 
 | `messages(user = null)` | `MessageQuery`; null = current user, a guest gets an empty result |
 | `total(user = null)` | int |
 | `unreadTotal(user = null)` | int |
+| `unseenTotal(user = null)` | int, messages that arrived since the user's last inbox visit |
 | `message(id, user = null)` | `Message` or null |
 | `sentMessages(user = null)` | `MessageQuery` of what the user sent, newest first, hidden and expired included; a guest gets an empty result |
 | `sentMessage(id, user = null)` | `Message` or null |
 | `messageTypes()` | `value => label` |
+| `markAllSeen()` | int rows updated; clears the new count |
+| `markSeen(messages)` | int rows updated; a message, an id, or a list of either |
+| `markAllRead()` | int rows updated; marks read and seen |
+| `markRead(message)` | bool; a message or an id, marks read and seen, a passed message is updated in place |
+
+The four writing methods always act on the logged-in user, never take a user argument, and return 0 / false for a guest. Use them with `{% do %}` and keep them out of `{% cache %}` blocks.
 
 ###  `MessageQuery` (`craft.mailCraft.messages()`)
 
@@ -146,6 +165,7 @@ A template has one subject and body (the Content tab) that every channel sends. 
 | `sentBy(user)` | Filter by sender for a "sent" listing |
 | `type(value)` | Filter by type |
 | `unread()`, `read()` | Filter by read state |
+| `unseen()`, `seen()` | Filter by seen state |
 | `pinned()` | Only pinned |
 | `hidden()` | Only hidden |
 | `withHidden()` | Include hidden messages (hidden are excluded by default) |
@@ -167,9 +187,12 @@ A template has one subject and body (the Content tab) that every channel sends. 
 | `pinned` | Whether the message is pinned |
 | `hidden` | Whether the message is hidden |
 | `isRead` | Whether the recipient has read it (`dateRead` is set) |
+| `isSeen` | Whether the recipient has been to the inbox since it arrived (`dateSeen` is set) |
+| `isNew` | Unseen, or marked seen by the current request; use it for a "New" tag |
 | `isExpired` | Whether `dateExpires` has passed |
 | `dateCreated` | When the message was sent |
 | `dateRead` | When it was read, or null |
+| `dateSeen` | When it was first seen, or null |
 | `dateExpires` | When it expires, or null for never |
 | `from` | Sender as a `craft\elements\User` (disabled and soft-deleted users still load), or null for a system message or a permanently deleted sender |
 | `to` | Recipient as a `craft\elements\User` (disabled and soft-deleted users still load); permanently deleting the recipient deletes their messages |
@@ -185,9 +208,11 @@ All POST, logged-in users only, CSRF required. Post `id` or `ids[]`. Each action
 
 | Action | Effect |
 |---|---|
-| `mailcraft/messages/mark-read` | Mark read |
+| `mailcraft/messages/mark-read` | Mark read (and seen) |
 | `mailcraft/messages/mark-unread` | Mark unread |
-| `mailcraft/messages/mark-all-read` | Mark all of the user's messages read |
+| `mailcraft/messages/mark-all-read` | Mark all of the user's messages read (and seen) |
+| `mailcraft/messages/mark-seen` | Mark seen |
+| `mailcraft/messages/mark-all-seen` | Mark all of the user's messages seen (clears the new count); no ids needed |
 | `mailcraft/messages/pin`, `unpin` | Pin or unpin |
 | `mailcraft/messages/hide`, `unhide` | Hide or unhide |
 | `mailcraft/messages/delete` | Delete permanently |

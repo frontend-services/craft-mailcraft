@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.6.2 - 2026-10-30
+- Private messages: "new since your last visit"
+
 ## 1.6.1 - 2026-10-30
 - Sample config.php
 - German translation

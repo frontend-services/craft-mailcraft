@@ -1,9 +1,12 @@
 {#
-  Unread badge.
+  New and unread counters.
 #}
+{% set new = craft.mailCraft.unseenTotal() %}
 {% set unread = craft.mailCraft.unreadTotal() %}
-{% if unread > 0 %}
+{% if new > 0 or unread > 0 %}
   <a href="{{ url('messages') }}" class="fixed top-3 right-3 z-50 rounded-full bg-red-600 text-white text-sm px-3 py-1 shadow">
-    {{ '{n} unread'|t('mailcraft', {n: unread}) }}
+    {% if new > 0 %}<span>{{ '{n} new'|t('mailcraft', {n: new}) }}</span>{% endif %}
+    {% if new > 0 and unread > 0 %}<span aria-hidden="true"> &middot; </span>{% endif %}
+    {% if unread > 0 %}<span>{{ '{n} unread'|t('mailcraft', {n: unread}) }}</span>{% endif %}
   </a>
 {% endif %}

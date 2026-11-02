@@ -4,6 +4,9 @@
 #}
 {% extends 'messages/_layout' %}
 
+{# Logged-in users only. Guests are sent to the login page and brought back here afterwards. #}
+{% requireLogin %}
+
 {% set messageId = id|default(0)|abs %}
 {% set message = craft.mailCraft.message(messageId) %}
 {% set isSent = false %}
@@ -12,6 +15,9 @@
   {% set isSent = message is not null %}
 {% endif %}
 {% if not message %}{% exit 404 %}{% endif %}
+
+{# Mark the message read (and seen). Top-level so the badge in the layout already shows the new counts. #}
+{% if not isSent and not message.isRead %}{% do craft.mailCraft.markRead(message) %}{% endif %}
 
 {% set settings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}
 {% set canReply = settings.allowFrontendSending

@@ -68,7 +68,13 @@ class MessagesController extends Controller
      */
     public function actionMarkRead(): ?Response
     {
-        return $this->update(['dateRead' => Db::prepareDateForDb(new DateTime())]);
+        $ids = $this->idsFromRequest();
+        $userId = $this->currentUserId();
+        $service = MailCraft::getInstance()->privateMessages;
+        $n = $service->updateForUser($userId, $ids, ['dateRead' => Db::prepareDateForDb(new DateTime())]);
+        $service->markSeen($ids, $userId);
+
+        return $this->asSuccess(Craft::t('mailcraft', 'Updated.'), ['updated' => $n, 'ignored' => count($ids) - $n]);
     }
 
     /**
@@ -87,6 +93,29 @@ class MessagesController extends Controller
     public function actionMarkAllRead(): ?Response
     {
         $n = MailCraft::getInstance()->privateMessages->markAllRead($this->currentUserId());
+
+        return $this->asSuccess(Craft::t('mailcraft', 'Updated.'), ['updated' => $n, 'ignored' => 0]);
+    }
+
+    /**
+     * Marks the given messages seen.
+     *
+     * @throws BadRequestHttpException
+     */
+    public function actionMarkSeen(): ?Response
+    {
+        $ids = $this->idsFromRequest();
+        $n = MailCraft::getInstance()->privateMessages->markSeen($ids, $this->currentUserId());
+
+        return $this->asSuccess(Craft::t('mailcraft', 'Updated.'), ['updated' => $n, 'ignored' => count($ids) - $n]);
+    }
+
+    /**
+     * Marks every unseen message of the user seen (clears the "new" count).
+     */
+    public function actionMarkAllSeen(): ?Response
+    {
+        $n = MailCraft::getInstance()->privateMessages->markAllSeen($this->currentUserId());
 
         return $this->asSuccess(Craft::t('mailcraft', 'Updated.'), ['updated' => $n, 'ignored' => 0]);
     }
