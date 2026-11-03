@@ -13,6 +13,7 @@ use craft\events\RegisterUrlRulesEvent;
 use craft\events\RegisterUserPermissionsEvent;
 use craft\services\Elements;
 use craft\services\UserPermissions;
+use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\Controller;
 use craft\web\UrlManager;
@@ -38,6 +39,8 @@ use frontendservices\mailcraft\services\ConditionService;
 use frontendservices\mailcraft\services\DataService;
 use frontendservices\mailcraft\services\EmailService;
 use frontendservices\mailcraft\services\EventRegistry;
+use frontendservices\mailcraft\services\ImportService;
+use frontendservices\mailcraft\utilities\ImportTemplatesUtility;
 use frontendservices\mailcraft\services\PrivateMessageService;
 use frontendservices\mailcraft\services\StatusService;
 use frontendservices\mailcraft\variables\MailCraftVariable;
@@ -60,6 +63,7 @@ use yii\web\Response;
  * @property-read EventRegistry $eventRegistry
  * @property-read DataService $dataService
  * @property-read CkeditorService $ckeditor
+ * @property-read ImportService $templateImport
  * @property-read ChannelRegistry $channelRegistry
  * @property-read StatusService $statusService
  * @property-read PrivateMessageService $privateMessages
@@ -122,6 +126,7 @@ class MailCraft extends Plugin
             'channelRegistry' => ChannelRegistry::class,
             'statusService' => StatusService::class,
             'privateMessages' => PrivateMessageService::class,
+            'templateImport' => ImportService::class,
         ]);
 
         // Register variable
@@ -137,6 +142,7 @@ class MailCraft extends Plugin
         Craft::$app->onInit(function() {
             $this->registerCpRoutes();
             $this->registerElementTypes();
+            $this->registerUtilities();
             $this->registerPermissions();
         });
 
@@ -379,6 +385,30 @@ class MailCraft extends Plugin
                 $event->rules['mailcraft/email-templates/<templateId:\d+>'] = 'mailcraft/email-templates/edit';
                 $event->rules['mailcraft/status'] = 'mailcraft/status/index';
                 $event->rules['mailcraft/status/<id:\d+>'] = 'mailcraft/status/view';
+            }
+        );
+    }
+
+    /**
+     * MailCraft utilities
+     */
+    private function registerUtilities(): void
+    {
+        $eventName = defined(Utilities::class . '::EVENT_REGISTER_UTILITIES')
+            ? constant(Utilities::class . '::EVENT_REGISTER_UTILITIES')
+            : constant(Utilities::class . '::EVENT_REGISTER_UTILITY_TYPES');
+
+        Event::on(
+            Utilities::class,
+            $eventName,
+            static function(RegisterComponentTypesEvent $event) {
+                if (!Craft::$app->getRequest()->getIsCpRequest()) {
+                    return;
+                }
+                if (!Craft::$app->getUser()->checkPermission('mailcraft:manageEmailTemplates')) {
+                    return;
+                }
+                $event->types[] = ImportTemplatesUtility::class;
             }
         );
     }

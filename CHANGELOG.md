@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.7.0 - 2026-11-03
+- Import email templates
+
 ## 1.6.2 - 2026-10-30
 - Private messages: "new since your last visit"
 

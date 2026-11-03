@@ -1,0 +1,92 @@
+{% import '_includes/forms' as forms %}
+
+{% if rows is null %}
+    <p>
+        {{ 'Go to {link}, check the templates you want (or none for all), choose Export with format JSON and either data option, and upload the file here.'|t('mailcraft', {
+            link: tag('a', { href: templatesUrl, text: 'Email Templates'|t('mailcraft') }),
+        })|raw }}
+        {{ 'Templates are matched by handle, then by uid. Nothing is deleted.'|t('mailcraft') }}
+    </p>
+
+    <form method="post" enctype="multipart/form-data" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('mailcraft/import/upload') }}
+
+        {{ forms.fileField({
+            label: 'Export file'|t('mailcraft'),
+            id: 'mailcraft-import-file',
+            name: 'file',
+            inputAttributes: { accept: '.json,application/json', required: true },
+        }) }}
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Upload'|t('mailcraft') }}</button>
+        </div>
+    </form>
+{% else %}
+    {% set outcomeLabels = {
+        create: 'Create'|t('mailcraft'),
+        update: 'Update'|t('mailcraft'),
+        restore: 'Restore'|t('mailcraft'),
+        unchanged: 'Unchanged'|t('mailcraft'),
+        invalid: 'Invalid'|t('mailcraft'),
+    } %}
+    {% set outcomeColors = { create: 'green', update: 'blue', restore: 'orange', unchanged: '', invalid: 'red' } %}
+
+    <p>
+        {{ '{create} to create, {update} to update, {restore} to restore, {unchanged} unchanged, {invalid} invalid.'|t('mailcraft', counts) }}
+        {{ 'Checked rows are written when you import. Unchanged and invalid rows are skipped.'|t('mailcraft') }}
+    </p>
+
+    <form method="post" accept-charset="UTF-8">
+        {{ csrfInput() }}
+        {{ actionInput('mailcraft/import/run') }}
+        {{ hiddenInput('upload', uploadFingerprint) }}
+
+        <table class="data fullwidth">
+            <thead>
+                <tr>
+                    <th class="thin"></th>
+                    <th class="thin">#</th>
+                    <th>{{ 'Title'|t('mailcraft') }}</th>
+                    <th>{{ 'Handle'|t('mailcraft') }}</th>
+                    <th>{{ 'Outcome'|t('mailcraft') }}</th>
+                    <th>{{ 'Notes'|t('mailcraft') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td class="thin">
+                            {{ forms.checkbox({
+                                id: 'mailcraft-import-row-' ~ row.index,
+                                name: 'rows[' ~ row.index ~ ']',
+                                value: row.outcome,
+                                checked: row.checked,
+                                disabled: not row.canCheck,
+                            }) }}
+                        </td>
+                        <td class="thin"><label for="mailcraft-import-row-{{ row.index }}">{{ row.index }}</label></td>
+                        <td>{{ row.title }}</td>
+                        <td>{{ row.handle ?? '—' }}</td>
+                        <td>
+                            {% if outcomeColors[row.outcome] %}<span class="status {{ outcomeColors[row.outcome] }}"></span>{% endif %}
+                            {{ outcomeLabels[row.outcome] ?? row.outcome }}
+                        </td>
+                        <td class="light">{{ row.notes|map(n => n|e)|join('<br>')|raw }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="buttons">
+            <button type="submit" class="btn submit">{{ 'Import checked'|t('mailcraft') }}</button>
+        </div>
+    </form>
+
+    <form method="post" accept-charset="UTF-8" class="mt-s">
+        {{ csrfInput() }}
+        {{ actionInput('mailcraft/import/discard') }}
+        <button type="submit" class="btn">{{ 'Choose another file'|t('mailcraft') }}</button>
+    </form>
+{% endif %}
