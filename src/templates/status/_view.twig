@@ -91,6 +91,18 @@
             <h5 class="heading">{{ (status.status == 'sent' ? 'Sent' : 'Due')|t('mailcraft') }}</h5>
             <div class="value">{{ status.dateSent ? status.dateSent|datetime('short') : '–' }}</div>
         </div>
+        {% if status.sendId %}
+            <div class="data">
+                <h5 class="heading">{{ 'Part of send'|t('mailcraft') }}</h5>
+                <div class="value">
+                    {% if send %}
+                        <a href="{{ cpUrl('mailcraft/send') }}">{{ send.subject }}</a>
+                    {% else %}
+                        <span class="light">#{{ status.sendId }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
         {% if status.resentFromId %}
             <div class="data">
                 <h5 class="heading">{{ 'Resent from'|t('mailcraft') }}</h5>

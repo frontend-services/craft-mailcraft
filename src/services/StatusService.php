@@ -43,9 +43,10 @@ class StatusService extends Component
      * @param array $content `['subject' => string, 'body' => string]`, already rendered
      * @param DateTime|null $dateSent When the delivery is due (now + delay); null means now.
      * markSent() replaces it with the actual time.
+     * @param int|null $sendId The bulk send (Send page) this delivery belongs to
      * @return int|null The new row's id, or null when the channel is not recording or the write failed
      */
-    public function record(AbstractChannel $channel, EmailTemplate $template, array $content, array $payload, string $status = self::STATUS_QUEUED, ?string $error = null, ?DateTime $dateSent = null): ?int
+    public function record(AbstractChannel $channel, EmailTemplate $template, array $content, array $payload, string $status = self::STATUS_QUEUED, ?string $error = null, ?DateTime $dateSent = null, ?int $sendId = null): ?int
     {
         try {
             if (!$this->isRecording($channel->getHandle())) {
@@ -54,7 +55,7 @@ class StatusService extends Component
 
             // a savepoint when the host is already in a transaction, so a failed write
             // cannot poison it (Postgres)
-            return Craft::$app->getDb()->transaction(function() use ($channel, $template, $content, $payload, $status, $error, $dateSent) {
+            return Craft::$app->getDb()->transaction(function() use ($channel, $template, $content, $payload, $status, $error, $dateSent, $sendId) {
                 $record = new StatusRecord();
                 $record->templateId = $template->id;
                 $record->templateTitle = $template->title;
@@ -66,6 +67,7 @@ class StatusService extends Component
                 $record->error = $error;
                 $record->attempts = 0;
                 $record->dateSent = Db::prepareDateForDb($dateSent ?? new DateTime());
+                $record->sendId = $sendId;
 
                 if (!$record->save(false)) {
                     return null;
@@ -203,7 +205,7 @@ class StatusService extends Component
     /**
      * Returns rows matching the criteria, newest first.
      *
-     * @param array $criteria `channel`, `status` and/or `search` (subject and recipient);
+     * @param array $criteria `channel`, `status`, `send` (a send id) and/or `search` (subject and recipient);
      * `sort` is `dateCreated` (default) or `dateSent` (the due time for rows not sent yet,
      * the actual time for sent ones), latest first, so deliveries scheduled furthest ahead
      * come first
@@ -337,6 +339,7 @@ class StatusService extends Component
                     $record->attempts = 0;
                     $record->jobId = null;
                     $record->resentFromId = $status->id;
+                    $record->sendId = $status->sendId;
                     $record->dateSent = Db::prepareDateForDb(new DateTime());
                     $record->save(false);
 
@@ -532,6 +535,10 @@ class StatusService extends Component
 
         if (!empty($criteria['status'])) {
             $query->andWhere(['status' => (string)$criteria['status']]);
+        }
+
+        if (!empty($criteria['send'])) {
+            $query->andWhere(['sendId' => (int)$criteria['send']]);
         }
 
         if (isset($criteria['search']) && (string)$criteria['search'] !== '') {

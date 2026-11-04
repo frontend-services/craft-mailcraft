@@ -5,12 +5,15 @@ namespace frontendservices\mailcraft\variables;
 use Craft;
 use craft\helpers\App;
 use craft\helpers\Html;
+use craft\helpers\Json;
+use craft\helpers\UrlHelper;
 use craft\ckeditor\events\ModifyConfigEvent;
 use craft\ckeditor\Field;
 use craft\ckeditor\helpers\CkeditorConfig;
 use craft\ckeditor\Plugin as CkeditorPlugin;
 use craft\ckeditor\web\assets\BaseCkeditorPackageAsset;
 use frontendservices\mailcraft\assetbundles\ckeditor\MailCraftCkeditorAsset;
+use frontendservices\mailcraft\conditions\AudienceCondition;
 use craft\web\View;
 use craft\elements\User;
 use frontendservices\mailcraft\channels\PrivateMessageChannel;
@@ -279,6 +282,42 @@ EOD;
         } catch (LoaderError|SyntaxError $e) {
             return $e->getMessage();
         }
+    }
+
+    /**
+     * The audience picker (Craft's user condition builder) posting under `$name`.
+     *
+     * Twig: `craft.mailCraft.audienceForm(audience, 'audience', {showCount: true})`
+     *
+     * @param array|null $audience The stored audience; normalised for the form values
+     * @param array $options `showCount` (bool) renders the live count placeholder
+     */
+    public function audienceForm(?array $audience, string $name = 'audience', array $options = []): string
+    {
+        $audiences = MailCraft::getInstance()->audiences;
+        $normalized = $audiences->normalize($audience);
+        $idPrefix = trim((string)preg_replace('/[\[\]]+/', '-', $name), '-');
+
+        // problems and the builder read the condition as stored, before Craft rebuilds it
+        $storedRules = $audiences->conditionRulesFrom($audience);
+        $stored = $normalized;
+        $stored['condition'] = $storedRules ? ['class' => AudienceCondition::class, 'conditionRules' => $storedRules] : null;
+        // loadable rules stay in the builder, only the others are carried in conditionJson
+        $parts = $audiences->partitionRules($storedRules);
+
+        return Craft::$app->getView()->renderTemplate('mailcraft/_includes/audience', [
+            'audience' => $normalized,
+            'name' => $name,
+            'idPrefix' => $idPrefix,
+            'conditionHtml' => $audiences->getBuilderHtml(['conditionRules' => $parts['loadable']], $name . '[condition]', $idPrefix . '-condition'),
+            'conditionUnloadable' => $parts['unloadable'] !== [],
+            'conditionJson' => $parts['unloadable'] !== []
+                ? Json::encode(['class' => AudienceCondition::class, 'conditionRules' => $parts['unloadable']])
+                : null,
+            'problems' => $audiences->problems($stored),
+            'showCount' => (bool)($options['showCount'] ?? false),
+            'countUrl' => UrlHelper::actionUrl('mailcraft/send/count'),
+        ], View::TEMPLATE_MODE_CP);
     }
 
     /**

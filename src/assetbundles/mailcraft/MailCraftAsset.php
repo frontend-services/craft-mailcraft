@@ -17,6 +17,7 @@ class MailCraftAsset extends AssetBundle
 
         $this->js = [
             'js/mailcraft.js',
+            'js/send.js',
         ];
 
         $this->css = [

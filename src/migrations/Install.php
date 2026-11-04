@@ -34,6 +34,7 @@ class Install extends Migration
     {
         $this->dropTableIfExists('{{%mailcraft_messages}}');
         $this->dropTableIfExists('{{%mailcraft_statuses}}');
+        $this->dropTableIfExists('{{%mailcraft_sends}}');
         $this->dropTableIfExists('{{%mailcraft_emailtemplates}}');
         $this->dropTableIfExists('{{%mailcraft_data}}');
         return true;
@@ -81,6 +82,32 @@ class Install extends Migration
             'uid' => $this->uid(),
         ]);
 
+        $this->createTable('{{%mailcraft_sends}}', [
+            'id' => $this->primaryKey(),
+            'templateId' => $this->integer(),
+            'templateTitle' => $this->string(255),
+            'templateSnapshot' => $this->text(),
+            'subject' => $this->string(255),
+            'audience' => $this->text(),
+            'audienceSummary' => $this->string(255),
+            'channels' => $this->text()->notNull(),
+            'senderId' => $this->integer(),
+            'siteId' => $this->integer(),
+            'status' => $this->string(16)->notNull(),
+            'total' => $this->integer(),
+            'processed' => $this->integer()->notNull()->defaultValue(0),
+            'sent' => $this->integer()->notNull()->defaultValue(0),
+            'failed' => $this->integer()->notNull()->defaultValue(0),
+            'lastUserId' => $this->integer()->notNull()->defaultValue(0),
+            'jobId' => $this->string(64),
+            'error' => $this->text(),
+            'dateStarted' => $this->dateTime(),
+            'dateFinished' => $this->dateTime(),
+            'dateCreated' => $this->dateTime()->notNull(),
+            'dateUpdated' => $this->dateTime()->notNull(),
+            'uid' => $this->uid(),
+        ]);
+
         $this->createTable('{{%mailcraft_statuses}}', [
             'id' => $this->primaryKey(),
             'templateId' => $this->integer(),
@@ -94,6 +121,7 @@ class Install extends Migration
             'attempts' => $this->smallInteger()->unsigned()->notNull()->defaultValue(0),
             'jobId' => $this->string(64),
             'resentFromId' => $this->integer(),
+            'sendId' => $this->integer(),
             'dateSent' => $this->dateTime(),
             'dateCreated' => $this->dateTime()->notNull(),
             'dateUpdated' => $this->dateTime()->notNull(),
@@ -149,8 +177,12 @@ class Install extends Migration
             true
         );
 
-        foreach (['channel', 'status', 'dateCreated', 'dateUpdated', 'resentFromId', 'templateId'] as $column) {
+        foreach (['channel', 'status', 'dateCreated', 'dateUpdated', 'resentFromId', 'templateId', 'sendId'] as $column) {
             $this->createIndex(null, '{{%mailcraft_statuses}}', $column, false);
+        }
+
+        foreach (['status', 'dateCreated'] as $column) {
+            $this->createIndex(null, '{{%mailcraft_sends}}', $column, false);
         }
 
         $this->createIndex(null, '{{%mailcraft_messages}}', 'toId,hidden,pinned,dateCreated', false);
@@ -194,6 +226,10 @@ class Install extends Migration
             'SET NULL',
             null
         );
+
+        $this->addForeignKey(null, '{{%mailcraft_sends}}', 'templateId', '{{%mailcraft_emailtemplates}}', 'id', 'SET NULL', null);
+        $this->addForeignKey(null, '{{%mailcraft_sends}}', 'senderId', Table::USERS, 'id', 'SET NULL', null);
+        $this->addForeignKey(null, '{{%mailcraft_statuses}}', 'sendId', '{{%mailcraft_sends}}', 'id', 'SET NULL', null);
 
         $this->addForeignKey(null, '{{%mailcraft_messages}}', 'toId', Table::ELEMENTS, 'id', 'CASCADE', null);
         $this->addForeignKey(null, '{{%mailcraft_messages}}', 'fromId', Table::ELEMENTS, 'id', 'SET NULL', null);

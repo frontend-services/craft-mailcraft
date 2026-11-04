@@ -33,6 +33,7 @@ use frontendservices\mailcraft\events\providers\UserDeleteEventProvider;
 use frontendservices\mailcraft\events\providers\UserUpdateEventProvider;
 use frontendservices\mailcraft\events\providers\UserVerifyEmailEventProvider;
 use frontendservices\mailcraft\models\Settings;
+use frontendservices\mailcraft\services\AudienceService;
 use frontendservices\mailcraft\services\ChannelRegistry;
 use frontendservices\mailcraft\services\CkeditorService;
 use frontendservices\mailcraft\services\ConditionService;
@@ -42,6 +43,7 @@ use frontendservices\mailcraft\services\EventRegistry;
 use frontendservices\mailcraft\services\ImportService;
 use frontendservices\mailcraft\utilities\ImportTemplatesUtility;
 use frontendservices\mailcraft\services\PrivateMessageService;
+use frontendservices\mailcraft\services\SendService;
 use frontendservices\mailcraft\services\StatusService;
 use frontendservices\mailcraft\variables\MailCraftVariable;
 use yii\base\Event;
@@ -67,10 +69,12 @@ use yii\web\Response;
  * @property-read ChannelRegistry $channelRegistry
  * @property-read StatusService $statusService
  * @property-read PrivateMessageService $privateMessages
+ * @property-read AudienceService $audiences
+ * @property-read SendService $sends
  */
 class MailCraft extends Plugin
 {
-    public string $schemaVersion = '1.5.0';
+    public string $schemaVersion = '1.6.0';
     public bool $hasCpSettings = true;
     public bool $hasCpSection = true;
     public bool $hasEditions = false;
@@ -127,6 +131,8 @@ class MailCraft extends Plugin
             'statusService' => StatusService::class,
             'privateMessages' => PrivateMessageService::class,
             'templateImport' => ImportService::class,
+            'audiences' => AudienceService::class,
+            'sends' => SendService::class,
         ]);
 
         // Register variable
@@ -383,6 +389,7 @@ class MailCraft extends Plugin
                 $event->rules['mailcraft'] = 'mailcraft/email-templates/index';
                 $event->rules['mailcraft/email-templates/new'] = 'mailcraft/email-templates/new';
                 $event->rules['mailcraft/email-templates/<templateId:\d+>'] = 'mailcraft/email-templates/edit';
+                $event->rules['mailcraft/send'] = 'mailcraft/send/index';
                 $event->rules['mailcraft/status'] = 'mailcraft/status/index';
                 $event->rules['mailcraft/status/<id:\d+>'] = 'mailcraft/status/view';
             }
@@ -437,6 +444,10 @@ class MailCraft extends Plugin
                             'label' => Craft::t('mailcraft', 'Manage email templates'),
                             'info' => Craft::t('mailcraft', 'Create, edit and delete email templates'),
                         ],
+                        'mailcraft:sendToUsers' => [
+                            'label' => Craft::t('mailcraft', 'Send messages to users'),
+                            'info' => Craft::t('mailcraft', 'Can write and send messages containing Twig to any user. Grant it like “Manage email templates”.'),
+                        ],
                         'mailcraft:viewStatus' => [
                             'label' => Craft::t('mailcraft', 'View the Status page'),
                             'info' => Craft::t('mailcraft', 'Includes the full contents of every recorded message'),
@@ -461,23 +472,26 @@ class MailCraft extends Plugin
 
         $user = Craft::$app->getUser();
         $canTemplates = $user->checkPermission('mailcraft:manageEmailTemplates');
+        $canSend = $user->checkPermission('mailcraft:sendToUsers');
         // hasRows() swallows errors (e.g. the table is missing before migrations run)
         $canStatus = $user->checkPermission('mailcraft:viewStatus')
             && ($this->getSettings()->statusChannels !== [] || $this->statusService->hasRows());
 
+        $subnav = [];
+        if ($canTemplates) {
+            $subnav['templates'] = ['label' => Craft::t('mailcraft', 'Email Templates'), 'url' => 'mailcraft'];
+        }
+        if ($canSend) {
+            $subnav['send'] = ['label' => Craft::t('mailcraft', 'Send'), 'url' => 'mailcraft/send'];
+        }
         if ($canStatus) {
-            $subnav = [];
-            if ($canTemplates) {
-                $subnav['templates'] = ['label' => Craft::t('mailcraft', 'Email Templates'), 'url' => 'mailcraft'];
-            }
             $subnav['status'] = ['label' => Craft::t('mailcraft', 'Status'), 'url' => 'mailcraft/status'];
-            // Craft 5 renders any non-empty subnav, so only add one when there is a choice
-            if (count($subnav) > 1) {
-                $item['subnav'] = $subnav;
-            }
-            if (!$canTemplates) {
-                $item['url'] = 'mailcraft/status';
-            }
+        }
+        if (count($subnav) > 1) {
+            $item['subnav'] = $subnav;
+        }
+        if (!$canTemplates && $subnav !== []) {
+            $item['url'] = reset($subnav)['url'];
         }
 
         return $item;

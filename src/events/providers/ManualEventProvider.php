@@ -25,7 +25,7 @@ class ManualEventProvider extends AbstractEventProvider
     public function getEventDetails(): array
     {
         return [
-            'label' => Craft::t('mailcraft', 'Triggered from code'),
+            'label' => Craft::t('mailcraft', 'Manual send'),
             'group' => Craft::t('mailcraft', 'Manual'),
         ];
     }

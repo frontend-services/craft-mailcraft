@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.8.0 - 2026-11-05
+- Send notifications from Craft Admin
+
 ## 1.7.0 - 2026-11-03
 - Import email templates
 

@@ -1,0 +1,41 @@
+{#
+ # Audience picker.
+ #}
+{% import "_includes/forms" as forms %}
+
+<div class="mailcraft-audience" id="{{ idPrefix }}">
+    {{ hiddenInput(name ~ '[present]', '1') }}
+
+    {% if problems %}
+        <ul class="errors">
+            {% for problem in problems %}
+                <li>{{ problem }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    <div class="field">
+        <div class="heading"><label for="{{ idPrefix }}-condition">{{ 'Conditions'|t('mailcraft') }}</label></div>
+        <div class="instructions"><p>{{ 'Only active users are included. Add rules to narrow them down, or leave empty for everyone.'|t('mailcraft') }}</p></div>
+        {% if conditionUnloadable %}
+            {{ hiddenInput(name ~ '[conditionJson]', conditionJson) }}
+            {{ forms.checkboxField({
+                label: 'Remove the conditions that cannot be loaded'|t('mailcraft'),
+                id: idPrefix ~ '-drop-condition',
+                name: name ~ '[dropCondition]',
+                value: '1',
+            }) }}
+        {% endif %}
+        {{ conditionHtml|raw }}
+    </div>
+
+    {% if showCount %}
+        <div class="mailcraft-audience-sample" id="{{ idPrefix }}-sample">
+            <p class="mailcraft-audience-count" data-count-url="{{ countUrl }}">
+                <strong class="mailcraft-audience-count__label" id="{{ idPrefix }}-count"></strong>
+                <button type="button" class="btn small hidden" id="{{ idPrefix }}-sample-toggle" aria-expanded="false" aria-controls="{{ idPrefix }}-sample-list"></button>
+            </p>
+            <ul class="mailcraft-audience-sample__list hidden" id="{{ idPrefix }}-sample-list"></ul>
+        </div>
+    {% endif %}
+</div>

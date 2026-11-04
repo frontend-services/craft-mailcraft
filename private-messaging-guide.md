@@ -82,7 +82,7 @@ at the top of `index.twig`, outside any block. Twig runs a child template's top-
 
 ### Template event
 
-When building a new MailCraft template in the admin there is a manual event called **Triggered from code**. It never fires by itself, a template on it is only sent when your code calls `MailCraft::send()` or `PrivateMessaging::send()`, and the call supplies the required variables. A template on it can have the Private message channel, the Email channel, or both enabled.
+When building a new MailCraft template in the admin there is a manual event called **Manual send**. It never fires by itself, a template on it is only sent when your code calls `MailCraft::send()` or `PrivateMessaging::send()`, and the call supplies the required variables. A template on it can have the Private message channel, the Email channel, or both enabled.
 
 ![Set up a tempmaet for sending custom messages](./assets/php-sending-admin-screen.png)
 ![Set up a tempmaet for sending custom messages](./assets/php-sending-admin-screen-2.png)
@@ -103,7 +103,7 @@ Using a template, by handle, id or element:
 \frontendservices\mailcraft\MailCraft::send('system-messages', ['recipient' => $user]);
 ```
 
-The template's event and conditions are not consulted, so the template can be on "Triggered from code" or on any other event, it would still send the message using it's enabled channels.
+The template's event and conditions are not consulted, so the template can be on "Manual send" or on any other event, it would still send the message using it's enabled channels.
 
 Without a template (uses the built-in simple message, or the template named by `privateMessageTemplate`):
 

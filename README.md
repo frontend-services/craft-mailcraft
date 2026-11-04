@@ -24,6 +24,7 @@ panel - no developer assistance required. Install once, and let your clients han
 - **Statuses**: See which notifications got sent, resend them, see the reason for delivery failure
 - **Multiple channels**: Send notifications to multiple channels; easily get new private message notification to your email
 - **Export & Import**: Easily move your notifications between environments, Craft Cloud included
+- **[Send notifications from admin](./send-notifications-from-admin.md)**: Send messages to a group of users the control panel
 
 ## Event Triggers & Notification Types
 

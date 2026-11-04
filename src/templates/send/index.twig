@@ -1,0 +1,246 @@
+{% requirePermission 'mailcraft:sendToUsers' %}
+{% extends '_layouts/cp' %}
+{% import '_includes/forms' as forms %}
+
+{% do view.registerAssetBundle('frontendservices\\mailcraft\\assetbundles\\mailcraft\\MailCraftAsset') %}
+{% do view.registerTranslations('mailcraft', [
+    'Preview',
+    'Preview: {subject}',
+    'Email preview',
+    'Close',
+    'Could not generate preview.',
+    'Test sent via {channels}.',
+    'The test email could not be sent.',
+    'Counting…',
+    'Cannot count: fix the audience above.',
+    'Could not count the audience.',
+    'Send "{subject}" to about {count} via {channels}?',
+    'Send',
+    'Cancel',
+    'Show the first {n}',
+    'Hide',
+    'Copied {variable} to the clipboard.',
+    'Could not copy. Select the variable and copy it manually.',
+]) %}
+
+{% set title = 'Send'|t('mailcraft') %}
+{% set selectedSubnavItem = 'send' %}
+{% set fullPageForm = true %}
+{# The form only goes out through the confirm modal - no header Save button, no save shortcut, no unload prompt #}
+{% set saveShortcut = false %}
+{% set mainFormAttributes = { data: { 'confirm-unload': false } } %}
+{% block actionButton %}{% endblock %}
+
+{% set templateOptions = [{ label: 'Choose a template...'|t('mailcraft'), value: '' }] %}
+{% for t in templates %}
+    {% set templateOptions = templateOptions|merge([{ label: t.title, value: t.id }]) %}
+{% endfor %}
+
+{% set channelOptions = [] %}
+{% for handle, name in channels %}
+    {% set channelOptions = channelOptions|merge([{
+        label: name,
+        value: handle,
+        id: 'mailcraft-channel-' ~ handle,
+        disabled: mode == 'template' and selectedTemplate and handle not in selectedTemplate.channels,
+    }]) %}
+{% endfor %}
+
+{% set typeOptions = [{ label: '—', value: '' }] %}
+{% for value, label in messageTypes %}
+    {% set typeOptions = typeOptions|merge([{ label: label, value: value }]) %}
+{% endfor %}
+
+{% block content %}
+    {{ actionInput('mailcraft/send/send') }}
+
+    {% if errors %}
+        <ul class="errors">
+            {% for error in errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {# --- WHO --- #}
+    <div class="mailcraft-send-section" id="mailcraft-audience">
+        <h2>{{ 'Who'|t('mailcraft') }}</h2>
+        {{ craft.mailCraft.audienceForm(audience, 'audience', { showCount: true })|raw }}
+    </div>
+
+    {# --- WHAT --- #}
+    <div class="mailcraft-send-section" id="mailcraft-what">
+        <h2>{{ 'What'|t('mailcraft') }}</h2>
+
+        {{ forms.radioGroupField({
+            label: 'Message'|t('mailcraft'),
+            id: 'mailcraft-mode',
+            name: 'mode',
+            options: [
+                { label: 'Use a template'|t('mailcraft'), value: 'template' },
+                { label: 'Write it here'|t('mailcraft'), value: 'custom' },
+            ],
+            value: mode,
+        }) }}
+
+        <div id="mailcraft-mode-template"{% if mode != 'template' %} class="hidden"{% endif %}>
+            {% if templates %}
+                {% set templateInput %}
+                    <div class="flex flex-nowrap">
+                        <div class="select">
+                            <select id="templateId" name="templateId">
+                                {% for option in templateOptions %}
+                                    {{ tag('option', {
+                                        value: option.value,
+                                        selected: option.value and option.value == templateId,
+                                        text: option.label,
+                                    }) }}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% if canEditTemplates %}
+                            <a href="{{ selectedTemplate ? cpUrl('mailcraft/email-templates/' ~ selectedTemplate.id) : '#' }}" target="_blank" rel="noopener" class="go{{ not selectedTemplate ? ' hidden' }}" id="mailcraft-edit-template">{{ 'Edit template'|t('mailcraft') }}</a>
+                        {% endif %}
+                    </div>
+                {% endset %}
+                {{ forms.field({
+                    label: 'Template'|t('mailcraft'),
+                    instructions: 'Enabled templates with the event "Manual send". Picking one ticks the channels it has; untick any you do not want.'|t('mailcraft'),
+                    id: 'templateId',
+                }, templateInput) }}
+            {% else %}
+                <p class="light">{{ 'No enabled template with the event "Manual send" has a channel. Write the message here instead.'|t('mailcraft') }}</p>
+            {% endif %}
+        </div>
+
+        <div id="mailcraft-mode-custom"{% if mode != 'custom' %} class="hidden"{% endif %}>
+            {{ forms.textField({
+                label: 'Subject'|t('mailcraft'),
+                instructions: 'Variables work here, for example {example}.'|t('mailcraft', { example: '{{ recipient.firstName }}' }),
+                id: 'subject',
+                name: 'subject',
+                value: subject,
+                required: true,
+            }) }}
+
+            <div class="field">
+                <a class="fieldtoggle" data-target="mailcraft-send-vars" role="button" tabindex="0" aria-expanded="false">{{ 'Variables'|t('mailcraft') }}</a>
+                <div id="mailcraft-send-vars" class="mailcraft-disclosure hidden">
+                    <aside class="mailcraft-vars mailcraft-vars--grid">
+                        <p class="light mailcraft-vars__hint">{{ 'Click a variable to copy it, then paste it into the subject or the message.'|t('mailcraft') }}</p>
+                        <ul class="mailcraft-vars__list" id="mailcraft-send-vars-list"></ul>
+                    </aside>
+                </div>
+            </div>
+
+            {{ craft.mailCraft.templateEditor(adhocTemplate, 'template', template, 'Message'|t('mailcraft'))|raw }}
+
+            {% if 'privateMessage' in channels|keys %}
+                {{ forms.selectField({
+                    label: 'Type'|t('mailcraft'),
+                    instructions: 'The private message type. Only used for private messages.'|t('mailcraft'),
+                    id: 'pmType',
+                    name: 'pmType',
+                    options: typeOptions,
+                    value: pmType,
+                    fieldId: 'mailcraft-pm-type',
+                    fieldClass: 'privateMessage' in checkedChannels ? null : 'hidden',
+                }) }}
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- HOW --- #}
+    <div class="mailcraft-send-section" id="mailcraft-how">
+        <h2>{{ 'How'|t('mailcraft') }}</h2>
+        {{ forms.checkboxGroupField({
+            label: 'Channels'|t('mailcraft'),
+            instructions: 'With a template only its channels can be ticked; what you tick here is what goes out.'|t('mailcraft'),
+            id: 'mailcraft-channels',
+            name: 'channels',
+            options: channelOptions,
+            values: checkedChannels,
+        }) }}
+    </div>
+
+    {# --- Actions --- #}
+    <div class="mailcraft-send-section flex mailcraft-send-actions">
+        <button type="button" class="btn" id="mailcraft-send-test">{{ 'Send a test to me'|t('mailcraft') }}</button>
+        <button type="button" class="btn" id="mailcraft-preview-btn">{{ 'Preview'|t('mailcraft') }}</button>
+        <div class="flex-grow"></div>
+        <button type="submit" class="btn submit" id="mailcraft-send">{{ 'Send…'|t('mailcraft') }}</button>
+    </div>
+
+    {# --- Recent sends --- #}
+    <div class="mailcraft-send-section">
+        <h2>{{ 'Recent sends'|t('mailcraft') }}</h2>
+        {% if recent %}
+            <table class="data fullwidth mailcraft-sends-table">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ 'Date'|t('mailcraft') }}</th>
+                        <th scope="col">{{ 'Subject'|t('mailcraft') }}</th>
+                        <th scope="col">{{ 'Audience'|t('mailcraft') }}</th>
+                        <th scope="col">{{ 'Channels'|t('mailcraft') }}</th>
+                        <th scope="col">{{ 'Progress'|t('mailcraft') }}</th>
+                        <th scope="col">{{ 'Sender'|t('mailcraft') }}</th>
+                        <th scope="col"><span class="visually-hidden">{{ 'Actions'|t('mailcraft') }}</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for send in recent %}
+                        {% set sender = send.getSender() %}
+                        <tr>
+                            <td>
+                                {% if send.dateCreated %}
+                                    <span title="{{ send.dateCreated|datetime('short') }}">{{ send.dateCreated|timestamp }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ send.subject ?: '(no subject)'|t('mailcraft') }}</td>
+                            <td>{{ send.audienceSummary }}</td>
+                            <td>{{ send.channels|map(h => channels[h] ?? h)|join(', ') }}</td>
+                            <td class="mailcraft-sends-progress">
+                                {% set queueUrl = send.status == 'queued' ? send.getQueueUrl() : null %}
+                                {% if queueUrl %}
+                                    <a href="{{ queueUrl }}">{{ send.getProgressLabel() }}</a>
+                                {% else %}
+                                    {{ send.getProgressLabel() }}
+                                {% endif %}
+                                {% if send.status == 'failed' and send.error %}
+                                    <span class="error" title="{{ send.error }}">{{ send.error|slice(0, 80) }}</span>
+                                {% elseif send.status == 'cancelled' and send.total is not null %}
+                                    <span class="light">{{ 'Cancelled'|t('mailcraft') }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ sender ? (sender.friendlyName ?? sender.username) : '–' }}</td>
+                            <td class="thin">
+                                <div class="flex flex-nowrap">
+                                    {% if canViewStatus %}
+                                        <a href="{{ send.getStatusUrl() }}">{{ 'Status rows'|t('mailcraft') }}</a>
+                                    {% endif %}
+                                    {# The page is one form, so a cancel posts it with its own action and id #}
+                                    {% if send.isCancellable() %}
+                                        <button type="button" class="btn small mailcraft-confirm mailcraft-send-cancel" data-id="{{ send.id }}" data-confirm="{{ 'Cancel this send? The queued job is removed and nothing is sent.'|t('mailcraft') }}">{{ 'Cancel'|t('mailcraft') }}</button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="zilch">{{ 'Nothing sent from this page yet.'|t('mailcraft') }}</p>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{# variables: subject, content and type are empty from this page, so they are not offered #}
+{% js %}
+    new Craft.MailCraftSend({{ {
+        countUrl: actionUrl('mailcraft/send/count'),
+        variables: (craft.mailCraft.getEventTemplateVariables()['manual'] ?? [])|filter((def, key) => key not in ['subject', 'content', 'type']),
+        templates: templates,
+        channels: channels,
+        currentUserEmail: currentUser.email,
+    }|json_encode|raw }});
+{% endjs %}

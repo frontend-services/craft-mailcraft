@@ -288,3 +288,71 @@
     gap: 8px;
     margin-bottom: 12px;
 }
+
+/* --- Send page --- */
+.mailcraft-send-section {
+    border-top: 1px solid var(--gray-200, #e3e5e8);
+    padding: 24px 0;
+}
+
+.mailcraft-send-section:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.mailcraft-send-section > h2 {
+    margin-top: 0;
+}
+
+.mailcraft-audience-sample {
+    margin-top: 6px;
+}
+
+.mailcraft-audience-count {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.mailcraft-audience-sample__list {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    columns: 2;
+    column-gap: 24px;
+}
+
+.mailcraft-audience-sample__list li {
+    padding: 2px 0;
+    break-inside: avoid;
+}
+
+.mailcraft-vars--grid .mailcraft-vars__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0 16px;
+}
+
+#mailcraft-channels input:disabled + label {
+    opacity: 0.5;
+}
+
+.mailcraft-send-actions {
+    gap: 8px;
+}
+
+.mailcraft-sends-table .mailcraft-sends-progress {
+    white-space: nowrap;
+}
+
+.mailcraft-sends-table .mailcraft-sends-progress .error,
+.mailcraft-sends-table .mailcraft-sends-progress .light {
+    display: block;
+    white-space: normal;
+}
+
+.mailcraft-send-confirm,
+.mailcraft-save-template {
+    min-width: 360px;
+}

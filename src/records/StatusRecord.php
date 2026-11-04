@@ -19,6 +19,7 @@ use craft\db\ActiveRecord;
  * @property int $attempts
  * @property string|null $jobId
  * @property int|null $resentFromId
+ * @property int|null $sendId
  * @property string|null $dateSent
  * @property string $dateCreated
  * @property string $dateUpdated

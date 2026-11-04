@@ -7,11 +7,21 @@
 {% set selectedSubnavItem = 'status' %}
 
 {% block content %}
+    {% if sendFilter %}
+        <p class="mailcraft-status-send-note">
+            {{ 'Rows of the send "{subject}" ({date}).'|t('mailcraft', { subject: sendFilter.subject, date: sendFilter.date|datetime('short') }) }}
+            <a href="{{ sendFilter.showAllUrl }}">{{ 'Show all'|t('mailcraft') }}</a>
+        </p>
+    {% endif %}
+
     {# Filters #}
     <form method="get" action="{{ filterAction }}" class="flex mailcraft-status-filters">
         {% for name, value in filterHidden %}
             <input type="hidden" name="{{ name }}" value="{{ value }}">
         {% endfor %}
+        {% if sendId %}
+            <input type="hidden" name="send" value="{{ sendId }}">
+        {% endif %}
         {{ forms.selectField({
             label: 'Channel'|t('mailcraft'),
             name: 'channel',

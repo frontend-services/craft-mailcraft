@@ -61,6 +61,21 @@ class StatusController extends Controller
         }
         $criteria['sort'] = $sort;
 
+        $sendId = (int)$this->request->getQueryParam('send', 0);
+        $sendFilter = null;
+        if ($sendId > 0) {
+            $criteria['send'] = $sendId;
+            $send = MailCraft::getInstance()->sends->getById($sendId);
+            if ($send !== null) {
+                $sendFilter = [
+                    'id' => $sendId,
+                    'subject' => $send->subject,
+                    'date' => $send->dateCreated,
+                    'showAllUrl' => UrlHelper::cpUrl('mailcraft/status'),
+                ];
+            }
+        }
+
         $total = $statusService->count($criteria);
         $lastPage = max(1, (int)ceil($total / $limit));
         $page = min($page, $lastPage);
@@ -87,6 +102,7 @@ class StatusController extends Controller
             'status' => $status,
             'search' => $search,
             'sort' => $sort !== StatusService::SORT_CREATED ? $sort : '',
+            'send' => $sendId > 0 ? $sendId : '',
         ], static fn($value) => $value !== '');
 
         $pageInfo = [
@@ -123,6 +139,8 @@ class StatusController extends Controller
             ],
             'filterAction' => $filterAction,
             'filterHidden' => $filterHidden,
+            'sendFilter' => $sendFilter,
+            'sendId' => $sendId > 0 ? $sendId : null,
             'pageInfo' => $pageInfo,
             'canManage' => Craft::$app->getUser()->checkPermission('mailcraft:manageStatus'),
         ]);
@@ -171,6 +189,7 @@ class StatusController extends Controller
             'payloadFields' => $payloadFields,
             'body' => $body,
             'bodyHtml' => $bodyHtml,
+            'send' => $status->sendId ? MailCraft::getInstance()->sends->getById((int)$status->sendId) : null,
             'canManage' => Craft::$app->getUser()->checkPermission('mailcraft:manageStatus'),
         ]);
     }

@@ -36,6 +36,7 @@ class Status extends Model
     public int $attempts = 0;
     public ?string $jobId = null;
     public ?int $resentFromId = null;
+    public ?int $sendId = null;
     /**
      * When the delivery is due (queued, failed, cancelled) or was made (sent).
      */
@@ -65,6 +66,7 @@ class Status extends Model
         $model->attempts = (int)$record->attempts;
         $model->jobId = $record->jobId;
         $model->resentFromId = $record->resentFromId !== null ? (int)$record->resentFromId : null;
+        $model->sendId = $record->sendId !== null ? (int)$record->sendId : null;
         $model->dateSent = DateTimeHelper::toDateTime($record->dateSent) ?: null;
         $model->dateCreated = DateTimeHelper::toDateTime($record->dateCreated) ?: null;
         $model->dateUpdated = DateTimeHelper::toDateTime($record->dateUpdated) ?: null;
