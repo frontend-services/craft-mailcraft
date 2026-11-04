@@ -1,6 +1,10 @@
 # Release Notes for MailCraft
 
-## 1.8.0 - 2026-11-05
+## 1.8.1 - 2026-11-04
+- Migration fix
+- Documentation for adding custom user rules
+
+## 1.8.0 - 2026-11-04
 - Send notifications from Craft Admin
 
 ## 1.7.0 - 2026-11-03

@@ -14,6 +14,7 @@ class m251103_150000_add_sends extends Migration
 {
     private const SENDS = '{{%mailcraft_sends}}';
     private const STATUSES = '{{%mailcraft_statuses}}';
+    private const TEMPLATES = '{{%mailcraft_emailtemplates}}';
 
     /**
      * @inheritdoc

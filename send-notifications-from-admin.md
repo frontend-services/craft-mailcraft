@@ -9,6 +9,33 @@ MailCraft -> Send messages a group of users by email and/or private message. Use
 
 Messages are always sent through Craft's queue, so make sure it runs.
 
+### Your own rules
+
+When Craft's rules are not enough you can add a rule of your own. MailCraft's audience condition is a Craft condition, so Craft's `registerConditionRules` event works on it.
+
+1. Write a rule class. You can find example rule in [examples/conditions/FavouritePlanetConditionRule.php](./examples/conditions/FavouritePlanetConditionRule.php) - it extends Craft's `BaseMultiSelectConditionRule` (operators "is one of" / "is not one of" with a multi-select of fixed values) and filters the user query by a Plain Text field.
+2. Register it in your module's `init()`:
+
+```php
+use craft\base\conditions\BaseCondition;
+use craft\events\RegisterConditionRulesEvent;
+use frontendservices\mailcraft\conditions\AudienceCondition;
+use modules\custommodule\conditions\FavouritePlanetConditionRule;
+use yii\base\Event;
+
+Event::on(
+    AudienceCondition::class,
+    BaseCondition::EVENT_REGISTER_CONDITION_RULES,
+    function(RegisterConditionRulesEvent $event) {
+        $event->conditionRules[] = FavouritePlanetConditionRule::class;
+    }
+);
+```
+
+The rule then appears in the Send page's "Add a rule" menu under its label. Any class that implements `craft\elements\conditions\ElementConditionRuleInterface` works. Craft's base classes (`BaseTextConditionRule`, `BaseMultiSelectConditionRule`, `BaseSelectConditionRule`, `BaseDateRangeConditionRule`, `BaseElementSelectConditionRule`) cover the usual inputs.
+
+A rule is saved with each send by class name. If the class is later removed or its field deleted, the Send page shows the saved conditions as unloadable and refuses to send until they are removed, so an audience is never silently widened. The same rules can be passed from code, see below.
+
 ## From code
 
 ```php
