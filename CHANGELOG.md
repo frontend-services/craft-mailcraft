@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.8.2 - 2026-11-05
+- Labelled meta fields for private messages
+
 ## 1.8.1 - 2026-11-04
 - Migration fix
 - Documentation for adding custom user rules

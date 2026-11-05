@@ -1,6 +1,6 @@
 # Private messaging on Craft CMS: setup guide
 
-Private messages are a [MailCraft](https://plugins.craftcms.com/mailcraft) channel. The plugin ships working demo templates (inbox, single message with reply, sent list, send form, unread badge) in its `examples/templates/messages/` folder; section 4 explains how to install them and what each file shows.
+Private messages are a [MailCraft](https://plugins.craftcms.com/mailcraft) channel. The plugin ships working demo templates (inbox, single message with reply, sent list, send form, unread badge) in its `examples/templates/messages/` folder.
 
 This channel can also be used for other type of messages like system messages, store promotions, service disruptions and similar.
 
@@ -25,7 +25,47 @@ return [
 
 Even without defining message types in settings we can still add custom types when sending messages. The only thing we lose is the type label that can be defined this way.
 
-## 3. A template with the channel enabled on a normal event (optional)
+## 3. Describe the meta columns (optional)
+
+Every message has five spare columns, `meta1` ... `meta5` (strings up to 255 characters, indexed, filterable with `.meta(n, value)`). By default they are only reachable from code and from the bare "Meta 1" ... "Meta 5" inputs on a template's Private message tab. Describe them in `config/mailcraft.php` and they become labelled fields:
+
+```php
+return [
+    'privateMessageMeta' => [
+        'meta1' => [
+            'label' => 'Color',
+            'type' => 'dropdown',
+            'values' => ['Blue' => 'blue', 'Red' => 'red'], // label => value, or a plain list
+            'instructions' => 'Shown as the stripe on the message card.', // optional
+        ],
+        'meta2' => ['label' => 'Location', 'type' => 'text'],
+        'meta3' => ['label' => 'Important', 'type' => 'checkbox'],
+    ],
+];
+```
+
+| Key | Meaning |
+|-----|---------|
+| `label` | Required. A column without a label is not described. |
+| `type` | `text` (default), `dropdown` or `checkbox`. Anything else falls back to `text`. |
+| `values` | Dropdown only: label => value, or a plain list where the value is its own label. A dropdown without values falls back to `text`. |
+| `instructions` | Optional field instructions. |
+
+What is stored:
+
+| Type | Stored value |
+|------|--------------|
+| text | The text, cut to 255 characters; blank stores `NULL`. |
+| dropdown | The chosen value; "-" stores `NULL`. |
+| checkbox | `'1'` when ticked, `NULL` when not. Filter with `.meta(3, '1')`. |
+
+**Send page.** In "Write it here" mode the described columns appear as fields under Type whenever the Private message channel is ticked, and every message of the send gets the values. "An email template" mode keeps the template's own meta settings.
+
+**Template editor.** On the Private message tab the described columns show the same labels and inputs. A text column still accepts Twig there. Columns you do not describe keep their "Meta N" Twig input. 
+
+**Templates.** `message.metaLabel(1)` returns the dropdown label of the stored value (`Blue` for `blue`), or the raw value for other columns, or `''` when empty. `craft.mailCraft.getPrivateMessageMeta()` returns the descriptions keyed `meta1` ... `meta5`, each with `label`, `type`, `options` (value => label) and `instructions`, so you can build a filter bar from them. `MailCraft::send()` keeps accepting raw `meta1` ... `meta5` strings and does not validate them against the config.
+
+## 4. A template with the channel enabled on a normal event (optional)
 
 Create an email template, pick its event, and enable the Private message channel tab. Use the quick picks for the fields:
 
@@ -35,7 +75,7 @@ Create an email template, pick its event, and enable the Private message channel
 
 Give the template a handle in its sidebar. Each time the event fires, the message is written for the recipient.
 
-## 4. Frontend twig templates
+## 5. Frontend twig templates
 
 The plugin ships a working demo frontend templates for private messages. The files live in `examples/templates/messages/` inside the plugin folder (`vendor/frontend-services/craft-mailcraft/examples/templates/messages/`). They are plain Twig with Tailwind classes (loaded from a CDN, demo only).
 
@@ -49,9 +89,9 @@ The plugin ships a working demo frontend templates for private messages. The fil
    ```
 
    `/messages`, `/messages/sent` and `/messages/send` need no route: Craft matches them to `index.twig`, `sent.twig` and `send.twig` by path.
-3. Log in on the frontend and open `/messages`. Send yourself a message from the control panel ("Send a test to me" on a template with the Private message channel enabled) or from PHP (section 5) to have something to look at.
+3. Log in on the frontend and open `/messages`. Send yourself a message from the control panel ("Send a test to me" on a template with the Private message channel enabled) or from PHP (section 6) to have something to look at.
 
-The "New message" page and the reply form only work when **Allow sending from the frontend** is on (section 9). Everything else works out of the box.
+The "New message" page and the reply form only work when **Allow sending from the frontend** is on (section 10). Everything else works out of the box.
 
 ### What each file does
 
@@ -78,7 +118,7 @@ Visiting the inbox clears the new count. The example puts
 at the top of `index.twig`, outside any block. Twig runs a child template's top-level tags before the layout renders, so the badge in the layout already shows zero. The rows that were just cleared still report `isNew` on that same visit, so they get the "New" tag once; on the next page load it is gone. Do not place the line inside `{% cache %}`. JavaScript or a form can post to `mailcraft/messages/mark-all-seen` instead.
 
 
-## 5. Sending from PHP (for building a custom messaging system)
+## 6. Sending from PHP (for building a custom messaging system)
 
 ### Template event
 
@@ -132,11 +172,11 @@ Without a template (uses the built-in simple message, or the template named by `
 
 `PrivateMessaging` also has `query()`, `markRead()`, `markSeen()`, `markAllSeen()`, `setPinned()`, `setHidden()` and `delete()` functions.
 
-## 6. Content overrides
+## 7. Content overrides
 
 A template has one subject and body (the Content tab) that every channel sends. A channel can send something else instead, for example the full text as a private message and only "You have a new message on {{ siteName }}" by email.
 
-## 7. Reference
+## 8. Reference
 
 ### `craft.mailCraft`
 
@@ -198,6 +238,7 @@ The four writing methods always act on the logged-in user, never take a user arg
 | `to` | Recipient as a `craft\elements\User` (disabled and soft-deleted users still load); permanently deleting the recipient deletes their messages |
 | `fromId`, `toId` | Raw sender and recipient ids (`fromId` is null for a system message or a permanently deleted sender) |
 | `meta1` ... `meta5` | Indexed string fields you can filter on with `meta(n, value)` |
+| `metaLabel(n)` | Dropdown label of `metaN` from `privateMessageMeta` (section 3), else the raw value, `''` when empty |
 | `data` | Array of extra values |
 
 `from` and `to` are full user elements, so `message.from.friendlyName`, `message.to.email` and any user field are available.
@@ -232,7 +273,7 @@ All POST, logged-in users only, CSRF required. Post `id` or `ids[]`. Each action
 
 With `allowFrontendSending` off, `send` answers 403.
 
-## 8. Frontend sending
+## 9. Frontend sending
 
 `examples/templates/messages/send.twig` lets a logged-in user message another user through `mailcraft/messages/send`. It is off by default.
 
@@ -245,7 +286,7 @@ With `allowFrontendSending` off, `send` answers 403.
 - **Rate limit.** A per-user counter in Craft's cache with a one-hour window. If the cache is a `yii\caching\DummyCache` the counter cannot persist, so MailCraft counts the user's sent rows from the last hour instead - stored private messages with `fromId` = the sender. System and template sends are never limited.
 - **Content.** Subject is plain text, trimmed to 255 characters. Content over 100,000 characters is refused before purifying; after purifying to a small allowlist of tags it is refused above 20,000 characters.
 
-## 9. Block message sending using the event
+## 10. Block message sending using the event
 A site module can refuse a message before it is sent. This can be useful for setting extra rules for sending private messages.
 
 ```php

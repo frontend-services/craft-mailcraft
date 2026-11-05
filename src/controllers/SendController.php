@@ -101,6 +101,9 @@ class SendController extends Controller
             'subject' => (string)($form['subject'] ?? ''),
             'template' => (string)($form['template'] ?? ''),
             'pmType' => (string)($form['pmType'] ?? ''),
+            'pmPinned' => !empty($form['pmPinned']),
+            'pmMeta' => (array)($form['pmMeta'] ?? []),
+            'metaFields' => $plugin->getSettings()->getPrivateMessageMeta(),
             'checkedChannels' => $checkedChannels,
             'adhocTemplate' => new EmailTemplate(),
         ]);
@@ -148,6 +151,9 @@ class SendController extends Controller
         $this->requireAcceptsJson();
 
         $form = $this->fromRequest();
+        if ($form['errors'] !== []) {
+            return $this->asJson(['success' => false, 'error' => implode("\n", $form['errors'])]);
+        }
         $template = $form['template'];
         $user = Craft::$app->getUser()->getIdentity();
 
@@ -202,6 +208,9 @@ class SendController extends Controller
         $this->requireAcceptsJson();
 
         $form = $this->fromRequest();
+        if ($form['errors'] !== []) {
+            return $this->asJson(['success' => false, 'error' => implode("\n", $form['errors'])]);
+        }
         $template = $form['template'];
 
         $errors = $template === null
@@ -238,6 +247,9 @@ class SendController extends Controller
 
         $form = $this->fromRequest();
         $notice = Craft::t('mailcraft', "Couldn't queue the send.");
+        if ($form['errors'] !== []) {
+            return $this->failWith($form, $form['errors'], $notice);
+        }
         if ($form['template'] === null) {
             return $this->failWith($form, [Craft::t('mailcraft', 'Choose a template.')], $notice);
         }
@@ -305,6 +317,8 @@ class SendController extends Controller
         }
         $channels = array_values(array_unique($channels));
 
+        $errors = [];
+        $pmMeta = [];
         if ($mode === 'template') {
             $template = $templateId
                 ? EmailTemplate::find()->id($templateId)->event('manual')->status(null)->one()
@@ -312,6 +326,9 @@ class SendController extends Controller
         } else {
             $subject = (string)$request->getBodyParam('subject', '');
             $pmType = $request->getBodyParam('pmType');
+            $meta = $plugin->sends->metaFromPost($request->getBodyParam('pmMeta'));
+            $pmMeta = $meta['values'];
+            $errors = $meta['errors'];
             $settings = [];
             foreach (array_keys($plugin->channelRegistry->getAllowedChannels()) as $handle) {
                 $enabled = in_array($handle, $channels, true);
@@ -321,7 +338,8 @@ class SendController extends Controller
                         'to' => '{{ recipient.id }}',
                         'from' => '{{ sender.id ?? "" }}',
                         'type' => is_string($pmType) ? $pmType : '',
-                    ];
+                        'pinned' => (bool)$request->getBodyParam('pmPinned'),
+                    ] + $pmMeta + ['metaLiteral' => true];
                 } else {
                     $settings[$handle] = ['enabled' => $enabled];
                 }
@@ -342,6 +360,8 @@ class SendController extends Controller
             'channels' => $channels,
             'audience' => $plugin->audiences->normalize($request->getBodyParam('audience')),
             'mode' => $mode,
+            'errors' => $errors,
+            'pmMeta' => $pmMeta,
         ];
     }
 
@@ -365,6 +385,8 @@ class SendController extends Controller
             'subject' => (string)$request->getBodyParam('subject', ''),
             'template' => (string)$request->getBodyParam('template', ''),
             'pmType' => (string)$request->getBodyParam('pmType', ''),
+            'pmPinned' => (bool)$request->getBodyParam('pmPinned'),
+            'pmMeta' => $form['pmMeta'],
             'channels' => $form['channels'],
             'audience' => $form['audience'],
         ]);

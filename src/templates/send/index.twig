@@ -146,6 +146,36 @@
                     fieldId: 'mailcraft-pm-type',
                     fieldClass: 'privateMessage' in checkedChannels ? null : 'hidden',
                 }) }}
+                <div id="mailcraft-pm-meta"{% if 'privateMessage' not in checkedChannels %} class="hidden"{% endif %}>
+                    {{ forms.lightswitchField({
+                        label: 'Pinned'|t('mailcraft'),
+                        instructions: 'Pinned messages stay at the top of the inbox. Only used for private messages.'|t('mailcraft'),
+                        id: 'pmPinned',
+                        name: 'pmPinned',
+                        on: pmPinned,
+                    }) }}
+                    {% if metaFields %}
+                        {% for key, meta in metaFields %}
+                            {% set base = {
+                                label: meta.label,
+                                instructions: meta.instructions,
+                                id: 'pmMeta-' ~ key,
+                                name: 'pmMeta[' ~ key ~ ']',
+                            } %}
+                            {% if meta.type == 'dropdown' %}
+                                {% set options = [{ label: '—', value: '' }] %}
+                                {% for optionValue, optionLabel in meta.options %}
+                                    {% set options = options|merge([{ label: optionLabel, value: optionValue }]) %}
+                                {% endfor %}
+                                {{ forms.selectField(base|merge({ options: options, value: pmMeta[key] ?? '' })) }}
+                            {% elseif meta.type == 'checkbox' %}
+                                {{ forms.lightswitchField(base|merge({ on: (pmMeta[key] ?? '') == '1' })) }}
+                            {% else %}
+                                {{ forms.textField(base|merge({ value: pmMeta[key] ?? '', maxlength: 255 })) }}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
             {% endif %}
         </div>
     </div>

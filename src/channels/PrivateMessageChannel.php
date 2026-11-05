@@ -299,8 +299,14 @@ class PrivateMessageChannel extends AbstractChannel
             'dateExpires' => $dateExpires !== '' ? $dateExpires : null,
         ];
 
+        $settings = MailCraft::getInstance()->getSettings();
+        $literal = !empty($this->setting($template, 'metaLiteral'));
         for ($i = 1; $i <= 5; $i++) {
-            $meta = (string)$this->render($this->setting($template, 'meta' . $i), $variables);
+            $raw = $this->setting($template, 'meta' . $i);
+            $described = $settings->getPrivateMessageMetaFor($i);
+            $asWritten = $literal
+                || ($described !== null && $described['type'] !== 'text' && $settings->metaValueFits($i, $raw));
+            $meta = $asWritten ? (string)$raw : (string)$this->render($raw, $variables);
             $payload['meta' . $i] = $meta !== '' ? mb_substr($meta, 0, 255) : null;
         }
 

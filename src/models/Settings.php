@@ -61,6 +61,13 @@ class Settings extends Model
     public array $privateMessageTypes = [];
 
     /**
+     * @var array Descriptions of the `meta1` ... `meta5` message columns, keyed `meta1` ... `meta5`:
+     * `['label' => 'Color', 'type' => 'dropdown', 'values' => ['Blue' => 'blue'], 'instructions' => '']`.
+     * `type` is `text` (default), `dropdown` or `checkbox`. Config file only.
+     */
+    public array $privateMessageMeta = [];
+
+    /**
      * @var mixed Template used by the `send()` facade (id or handle); null means the built-in simple message.
      */
     public mixed $privateMessageTemplate = null;
@@ -109,6 +116,10 @@ class Settings extends Model
 
         if (is_array($values) && array_key_exists('privateMessageTypes', $values)) {
             $values['privateMessageTypes'] = $this->normalizeTypes($values['privateMessageTypes']);
+        }
+
+        if (is_array($values) && array_key_exists('privateMessageMeta', $values)) {
+            $values['privateMessageMeta'] = $this->normalizeMeta($values['privateMessageMeta']);
         }
 
         if (is_array($values) && array_key_exists('privateMessageTemplate', $values)) {
@@ -167,6 +178,44 @@ class Settings extends Model
         }
 
         return $types;
+    }
+
+    /**
+     * The described meta columns, keyed `meta1` ... `meta5` in column order. Each entry is
+     * `['label' => string, 'type' => 'text'|'dropdown'|'checkbox', 'options' => [value => label], 'instructions' => string]`.
+     * Undescribed columns are left out.
+     */
+    public function getPrivateMessageMeta(): array
+    {
+        return $this->normalizeMeta($this->privateMessageMeta);
+    }
+
+    /**
+     * The description of one meta column.
+     */
+    public function getPrivateMessageMetaFor(int $n): ?array
+    {
+        return $this->getPrivateMessageMeta()['meta' . $n] ?? null;
+    }
+
+    /**
+     * Whether a stored value can be shown in the column's configured input.
+     */
+    public function metaValueFits(int $n, mixed $value): bool
+    {
+        $meta = $this->getPrivateMessageMetaFor($n);
+        if ($meta === null || $value === null || $value === '') {
+            return true;
+        }
+        if (!is_scalar($value)) {
+            return false;
+        }
+
+        return match ($meta['type']) {
+            'dropdown' => array_key_exists((string)$value, $meta['options']),
+            'checkbox' => (string)$value === '1',
+            default => true,
+        };
     }
 
     /**
@@ -233,6 +282,66 @@ class Settings extends Model
         return $types;
     }
 
+    /**
+     * Normalises `privateMessageMeta`.
+     */
+    private function normalizeMeta(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $meta = [];
+        for ($i = 1; $i <= 5; $i++) {
+            $key = 'meta' . $i;
+            $entry = $value[$key] ?? null;
+            if (is_string($entry)) {
+                $entry = ['label' => $entry];
+            }
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $label = is_scalar($entry['label'] ?? null) ? trim((string)$entry['label']) : '';
+            if ($label === '') {
+                continue;
+            }
+
+            $type = is_scalar($entry['type'] ?? null) ? strtolower(trim((string)$entry['type'])) : 'text';
+            if ($type === '') {
+                $type = 'text';
+            }
+            if (!in_array($type, ['text', 'dropdown', 'checkbox'], true)) {
+                Craft::warning(sprintf('MailCraft: privateMessageMeta.%s has an unknown type "%s"; using text.', $key, $type), __METHOD__);
+                $type = 'text';
+            }
+
+            $options = [];
+            if ($type === 'dropdown') {
+                // the normalised shape stores options as value => label, raw config as label => value
+                $source = $entry['options'] ?? $entry['values'] ?? [];
+                if (array_key_exists('options', $entry) && is_array($source)) {
+                    $options = array_map('strval', array_filter($source, 'is_scalar'));
+                } else {
+                    $options = array_flip($this->normalizeTypes($source));
+                }
+                if ($options === []) {
+                    Craft::warning(sprintf('MailCraft: privateMessageMeta.%s is a dropdown without values; using text.', $key), __METHOD__);
+                    $type = 'text';
+                }
+            }
+
+            $meta[$key] = [
+                'label' => $label,
+                'type' => $type,
+                'options' => $options,
+                'instructions' => is_scalar($entry['instructions'] ?? null) ? trim((string)$entry['instructions']) : '',
+            ];
+        }
+
+        return $meta;
+    }
+
     public function validateAllowedChannels(): void
     {
         if ($this->allowedChannels === []) {
@@ -291,6 +400,7 @@ class Settings extends Model
             ['statusRetentionDays', 'integer', 'min' => 0],
             ['statusRetentionDays', 'default', 'value' => 30],
             ['privateMessageTemplate', 'safe'],
+            ['privateMessageMeta', 'safe'],
             ['allowFrontendSending', 'boolean'],
             ['frontendSendingPerHour', 'integer', 'min' => 0],
             ['frontendSendingPerHour', 'default', 'value' => 30],

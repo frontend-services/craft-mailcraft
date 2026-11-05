@@ -108,6 +108,38 @@ class SendService extends Component
     }
 
     /**
+     * Reads the Send page's `pmMeta[metaN]` input against the described meta columns.
+     */
+    public function metaFromPost(mixed $posted): array
+    {
+        $posted = is_array($posted) ? $posted : [];
+        $values = [];
+        $errors = [];
+
+        foreach (MailCraft::getInstance()->getSettings()->getPrivateMessageMeta() as $key => $meta) {
+            $raw = $posted[$key] ?? '';
+            $raw = is_scalar($raw) ? (string)$raw : '';
+
+            switch ($meta['type']) {
+                case 'dropdown':
+                    if ($raw !== '' && !array_key_exists($raw, $meta['options'])) {
+                        $errors[] = Craft::t('mailcraft', '{label}: pick one of the configured values.', ['label' => $meta['label']]);
+                        continue 2;
+                    }
+                    $values[$key] = $raw;
+                    break;
+                case 'checkbox':
+                    $values[$key] = filter_var($raw, FILTER_VALIDATE_BOOLEAN) ? '1' : '';
+                    break;
+                default:
+                    $values[$key] = mb_substr(trim($raw), 0, 255);
+            }
+        }
+
+        return ['values' => $values, 'errors' => $errors];
+    }
+
+    /**
      * The parts of an unsaved template stored on its send row.
      */
     public function snapshot(EmailTemplate $t): array

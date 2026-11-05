@@ -9,6 +9,7 @@ use craft\helpers\Json;
 use DateTime;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\records\MessageRecord;
+use yii\base\InvalidArgumentException;
 
 /**
  * A private message in a user's inbox.
@@ -192,6 +193,25 @@ class Message extends Model
         }
 
         return MailCraft::getInstance()->getSettings()->getPrivateMessageTypes()[$this->type] ?? $this->type;
+    }
+
+    /**
+     * The label of a `meta1` ... `meta5` value.
+     */
+    public function getMetaLabel(int $n): string
+    {
+        if ($n < 1 || $n > 5) {
+            throw new InvalidArgumentException('The meta column number must be between 1 and 5.');
+        }
+
+        $value = $this->{'meta' . $n};
+        if ($value === null) {
+            return '';
+        }
+
+        $meta = MailCraft::getInstance()->getSettings()->getPrivateMessageMetaFor($n);
+
+        return $meta !== null && $meta['type'] === 'dropdown' ? ($meta['options'][$value] ?? $value) : $value;
     }
 
     /**

@@ -1,6 +1,8 @@
 {% import "_includes/forms" as forms %}
 {% set settings = emailTemplate.getChannelSettings('privateMessage') %}
-{% set messageTypes = craft.app.plugins.getPlugin('mailcraft').getSettings().getPrivateMessageTypes() %}
+{% set pluginSettings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}
+{% set messageTypes = pluginSettings.getPrivateMessageTypes() %}
+{% set metaFields = pluginSettings.getPrivateMessageMeta() %}
 {% set showAdvanced = (settings.meta1 ?? false) or (settings.meta2 ?? false) or (settings.meta3 ?? false) or (settings.meta4 ?? false) or (settings.meta5 ?? false) or (settings.data ?? false) or (settings.dateExpires ?? false) %}
 
 {% set toInput %}
@@ -88,15 +90,52 @@
     <a class="fieldtoggle{{ showAdvanced ? ' expanded' }}" data-target="mailcraft-pm-advanced" role="button" tabindex="0" aria-expanded="{{ showAdvanced ? 'true' : 'false' }}">{{ 'Advanced: meta fields and data'|t('mailcraft') }}</a>
     <div id="mailcraft-pm-advanced" class="mailcraft-disclosure flex-fields{{ not showAdvanced ? ' hidden' }}">
         {% for i in 1..5 %}
-            {{ forms.textField({
-                label: "Meta {num}"|t('mailcraft', { num: i }),
+            {% set meta = metaFields['meta' ~ i] ?? null %}
+            {% set value = settings['meta' ~ i] ?? '' %}
+            {% set fits = pluginSettings.metaValueFits(i, value) %}
+            {% set base = {
                 id: 'channels-privateMessage-meta' ~ i,
                 name: 'channels[privateMessage][meta' ~ i ~ ']',
-                value: settings['meta' ~ i] ?? '',
-                class: 'code',
-                fieldClass: 'width-50',
                 errors: emailTemplate.getErrors('channels.privateMessage.meta' ~ i),
-            }) }}
+            } %}
+            {% if meta is null %}
+                {{ forms.textField(base|merge({
+                    label: "Meta {num}"|t('mailcraft', { num: i }),
+                    value: value,
+                    class: 'code',
+                    fieldClass: 'width-50',
+                })) }}
+            {% elseif meta.type == 'dropdown' and fits %}
+                {% set options = [{ label: '—', value: '' }] %}
+                {% for optionValue, optionLabel in meta.options %}
+                    {% set options = options|merge([{ label: optionLabel, value: optionValue }]) %}
+                {% endfor %}
+                {{ forms.selectField(base|merge({
+                    label: meta.label,
+                    instructions: meta.instructions,
+                    options: options,
+                    value: value,
+                    fieldClass: 'width-50',
+                })) }}
+            {% elseif meta.type == 'checkbox' and fits %}
+                {{ forms.lightswitchField(base|merge({
+                    label: meta.label,
+                    instructions: meta.instructions,
+                    on: value == '1',
+                })) }}
+            {% else %}
+                {# text, or a saved value that no longer fits the configured dropdown/checkbox: keep it as Twig #}
+                {% set typeLabel = meta.type == 'checkbox' ? 'checkbox'|t('mailcraft') : 'dropdown'|t('mailcraft') %}
+                {{ forms.textField(base|merge({
+                    label: meta.label,
+                    instructions: meta.instructions,
+                    warning: meta.type != 'text' ? 'Configured as a {type}. Clear this value to get the {type}, or keep it if the Twig is intentional.'|t('mailcraft', { type: typeLabel }) : null,
+                    value: value,
+                    class: 'code',
+                    maxlength: 255,
+                    fieldClass: 'width-50',
+                })) }}
+            {% endif %}
         {% endfor %}
         {{ forms.textareaField({
             label: "Data"|t('mailcraft'),

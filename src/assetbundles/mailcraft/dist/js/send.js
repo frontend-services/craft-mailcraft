@@ -204,7 +204,7 @@
         },
 
         onChannelChange: function () {
-            $('#mailcraft-pm-type').toggleClass('hidden', !$('#mailcraft-channel-privateMessage').prop('checked'));
+            $('#mailcraft-pm-type, #mailcraft-pm-meta').toggleClass('hidden', !$('#mailcraft-channel-privateMessage').prop('checked'));
         },
 
         getCheckedChannelNames: function () {

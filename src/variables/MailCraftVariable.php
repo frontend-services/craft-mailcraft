@@ -483,6 +483,15 @@ EOT;
     }
 
     /**
+     * The described meta columns from the `privateMessageMeta` setting, keyed `meta1` ... `meta5`,
+     * each `{label, type, options (value => label), instructions}`.
+     */
+    public function getPrivateMessageMeta(): array
+    {
+        return MailCraft::getInstance()->getSettings()->getPrivateMessageMeta();
+    }
+
+    /**
      * Private messages received by a user (default: the logged-in user), with the query
      * defaults (not hidden, not expired, pinned first, newest first). Returns nothing when
      * there is no user.

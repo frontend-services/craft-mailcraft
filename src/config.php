@@ -50,6 +50,15 @@ return [
     'privateMessageTypes' => [],
     // 'privateMessageTypes' => ['User message' => 'user', 'System message' => 'system', 'Info' => 'info'],
 
+    // Describe the message `meta1` ... `meta5` columns so the Send page and the template editor
+    // show them as labelled fields. `type` is text (default), dropdown or checkbox.
+    'privateMessageMeta' => [],
+    // 'privateMessageMeta' => [
+    //     'meta1' => ['label' => 'Color', 'type' => 'dropdown', 'values' => ['Blue' => 'blue', 'Red' => 'red']],
+    //     'meta2' => ['label' => 'Location', 'type' => 'text'],
+    //     'meta3' => ['label' => 'Important', 'type' => 'checkbox'],
+    // ],
+
     // Template used by the send() facade, by ID or handle.
     // null = the built-in simple message.
     'privateMessageTemplate' => null,
