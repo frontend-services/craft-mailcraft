@@ -10,10 +10,13 @@ use craft\helpers\DateTimeHelper;
 use craft\helpers\Db;
 use craft\helpers\HtmlPurifier;
 use craft\helpers\Json;
+use craft\models\Site;
+use craft\web\View;
 use DateTime;
 use frontendservices\mailcraft\channels\PrivateMessageChannel;
 use frontendservices\mailcraft\db\MessageQuery;
 use frontendservices\mailcraft\elements\EmailTemplate;
+use frontendservices\mailcraft\helpers\TemplateHelper;
 use frontendservices\mailcraft\MailCraft;
 use frontendservices\mailcraft\models\Message;
 use frontendservices\mailcraft\records\MessageRecord;
@@ -45,6 +48,7 @@ class PrivateMessageService extends Component
      * - `data` (array)
      * - `template`
      * (id, handle or element; overrides the configured one), `delay` (seconds), `site` (Site, id, handle) and `variables` (extra Twig variables for template).
+     * - `renderTwig` (bool, default false): render `$subject` and `$content` as Twig for each recipient
      *
      * @return bool True only when every recipient's send succeeded
      */
@@ -124,6 +128,35 @@ class PrivateMessageService extends Component
 
         $delay = (int)($options['delay'] ?? 0);
 
+        $renderTwig = ($options['renderTwig'] ?? false) === true;
+        $renderSite = null;
+        if ($renderTwig) {
+            if (is_int($variables['sender'])) {
+                $sender = Craft::$app->getUsers()->getUserById($variables['sender']);
+                if ($sender === null) {
+                    Craft::warning(sprintf(
+                        'MailCraft: sender #%d of private message "%s" is not a user; nothing sent.',
+                        $variables['sender'],
+                        $subject
+                    ), __METHOD__);
+                    return false;
+                }
+                $variables['sender'] = $sender;
+            }
+
+            if ($variables['site'] !== null) {
+                $renderSite = MailCraft::getInstance()->emailService->resolveSite($variables['site']);
+                if ($renderSite === null) {
+                    Craft::warning(sprintf(
+                        'MailCraft: site "%s" for private message "%s" not found; nothing sent.',
+                        is_scalar($variables['site']) ? $variables['site'] : get_debug_type($variables['site']),
+                        $subject
+                    ), __METHOD__);
+                    return false;
+                }
+            }
+        }
+
         $success = true;
         foreach ($recipients as $recipient) {
             if (!$recipient instanceof User) {
@@ -137,13 +170,79 @@ class PrivateMessageService extends Component
                 }
             }
 
-            $variables['recipient'] = $recipient;
-            if (!MailCraft::send($resolved, $variables, $delay)) {
+            $sendVariables = $variables;
+
+            if ($renderTwig) {
+                if (is_int($recipient)) {
+                    $user = Craft::$app->getUsers()->getUserById($recipient);
+                    if ($user === null) {
+                        Craft::warning(sprintf(
+                            'MailCraft: recipient #%d of private message "%s" is not a user; skipped.',
+                            $recipient,
+                            $subject
+                        ), __METHOD__);
+                        $success = false;
+                        continue;
+                    }
+                    $recipient = $user;
+                }
+
+                $sendVariables['recipient'] = $recipient;
+                $rendered = $this->renderSubjectAndContent($subject, $content, $sendVariables, $renderSite);
+                if ($rendered === null) {
+                    $success = false;
+                    continue;
+                }
+                [$sendVariables['subject'], $sendVariables['content']] = $rendered;
+            }
+
+            $sendVariables['recipient'] = $recipient;
+            if (!MailCraft::send($resolved, $sendVariables, $delay)) {
                 $success = false;
             }
         }
 
         return $success;
+    }
+
+    /**
+     * Renders the subject and content as site-mode Twig for one recipient (`renderTwig`), in `$site`
+     * when given. Null (and an error logged) when rendering fails.
+     *
+     * @return array{0:string,1:string}|null
+     */
+    private function renderSubjectAndContent(string $subject, string $content, array $variables, ?Site $site): ?array
+    {
+        unset($variables['site']);
+        $variables += TemplateHelper::getRuntimeVariables();
+
+        $view = Craft::$app->getView();
+        $sites = Craft::$app->getSites();
+        $oldSite = $sites->getCurrentSite();
+        $oldLanguage = Craft::$app->language;
+
+        try {
+            if ($site !== null) {
+                $sites->setCurrentSite($site);
+            }
+
+            return [
+                $view->renderString($subject, $variables, View::TEMPLATE_MODE_SITE),
+                $view->renderString($content, $variables, View::TEMPLATE_MODE_SITE, true),
+            ];
+        } catch (\Throwable $e) {
+            $recipient = $variables['recipient'] ?? null;
+            Craft::error(sprintf(
+                'MailCraft: could not render the Twig of private message "%s" for recipient #%s; skipped: %s',
+                $subject,
+                $recipient instanceof User ? $recipient->id : '?',
+                $e->getMessage()
+            ), __METHOD__);
+            return null;
+        } finally {
+            $sites->setCurrentSite($oldSite);
+            Craft::$app->language = $oldLanguage;
+        }
     }
 
     /**

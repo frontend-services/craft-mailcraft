@@ -169,6 +169,7 @@ Without a template (uses the built-in simple message, or the template named by `
 | `template` | Handle, id or element. Overrides `privateMessageTemplate` |
 | `site` | Site, id or handle to render in |
 | `delay` | Seconds |
+| `renderTwig` | bool, default `false`. Renders the subject and content as Twig for each recipient before sending. Values printed in the content are HTML-escaped; use `\|raw` to output HTML from a variable |
 
 `PrivateMessaging` also has `query()`, `markRead()`, `markSeen()`, `markAllSeen()`, `setPinned()`, `setHidden()` and `delete()` functions.
 

@@ -540,7 +540,7 @@ class EmailService extends Component
     /**
      * A Site, a site id, or a site handle. Null when nothing matches.
      */
-    private function resolveSite(mixed $site): ?Site
+    public function resolveSite(mixed $site): ?Site
     {
         if ($site instanceof Site) {
             return $site;

@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.8.4 - 2026-11-16
+- Add option to render twig in subject and content in PrivateMessaging::send()
+
 ## 1.8.3 - 2026-11-16
 - Added expiration to admin Send page
 
