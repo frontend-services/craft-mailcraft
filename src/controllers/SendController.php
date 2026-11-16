@@ -3,12 +3,14 @@
 namespace frontendservices\mailcraft\controllers;
 
 use Craft;
+use craft\helpers\DateTimeHelper;
 use craft\helpers\UrlHelper;
 use craft\elements\User;
 use craft\web\Controller;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\helpers\PreviewHelper;
 use frontendservices\mailcraft\MailCraft;
+use DateTime;
 use Throwable;
 use yii\web\ForbiddenHttpException;
 use yii\web\Response;
@@ -100,9 +102,16 @@ class SendController extends Controller
             'templateId' => $selected['id'] ?? null,
             'subject' => (string)($form['subject'] ?? ''),
             'template' => (string)($form['template'] ?? ''),
-            'pmType' => (string)($form['pmType'] ?? ''),
+            'pmType' => $form !== null
+                ? (string)($form['pmType'] ?? '')
+                : (string)(array_key_first($plugin->getSettings()->getPrivateMessageTypes()) ?? ''),
             'pmPinned' => !empty($form['pmPinned']),
             'pmMeta' => (array)($form['pmMeta'] ?? []),
+            'pmExpiresDays' => (string)($form['pmExpiresDays'] ?? ''),
+            'pmExpiresMode' => (string)($form['pmExpiresMode'] ?? ''),
+            'pmDateExpires' => !empty($form['pmDateExpires'])
+                ? (DateTime::createFromFormat('Y-m-d H:i:s', (string)$form['pmDateExpires']) ?: null)
+                : null,
             'metaFields' => $plugin->getSettings()->getPrivateMessageMeta(),
             'checkedChannels' => $checkedChannels,
             'adhocTemplate' => new EmailTemplate(),
@@ -295,7 +304,7 @@ class SendController extends Controller
     /**
      * The template, channels, audience and mode posted by the page.
      *
-     * @return array{template: ?EmailTemplate, channels: string[], audience: array, mode: string}
+     * @return array{template: ?EmailTemplate, channels: string[], audience: array, mode: string, errors: string[], pmMeta: array, pmExpiresDays: string, pmDateExpires: string, pmExpiresMode: string}
      */
     private function fromRequest(): array
     {
@@ -319,6 +328,9 @@ class SendController extends Controller
 
         $errors = [];
         $pmMeta = [];
+        $pmExpiresDays = '';
+        $pmDateExpires = '';
+        $pmExpiresMode = '';
         if ($mode === 'template') {
             $template = $templateId
                 ? EmailTemplate::find()->id($templateId)->event('manual')->status(null)->one()
@@ -329,6 +341,40 @@ class SendController extends Controller
             $meta = $plugin->sends->metaFromPost($request->getBodyParam('pmMeta'));
             $pmMeta = $meta['values'];
             $errors = $meta['errors'];
+
+            $expiresMode = $request->getBodyParam('pmExpiresMode');
+            $expiresMode = in_array($expiresMode, ['never', 'days', 'date'], true) ? $expiresMode : null;
+            $pmExpiresMode = (string)$expiresMode;
+            if (!in_array('privateMessage', $channels, true)) {
+                $expiresMode = 'never';
+            }
+            $postedDays = $expiresMode === null || $expiresMode === 'days' ? $request->getBodyParam('pmExpiresDays') : null;
+            $pmExpiresDays = is_scalar($postedDays) ? trim((string)$postedDays) : '';
+            if ($expiresMode === 'days' && ($pmExpiresDays === '' || $pmExpiresDays === '0')) {
+                $errors[] = Craft::t('mailcraft', 'Expires after: enter a number of days.');
+            } elseif ($pmExpiresDays !== '' && !ctype_digit($pmExpiresDays)) {
+                $errors[] = Craft::t('mailcraft', 'Expires after: must be a whole number of days.');
+                $pmExpiresDays = '';
+            }
+            $postedDate = $expiresMode === null || $expiresMode === 'date' ? $request->getBodyParam('pmDateExpires') : null;
+            $hasDate = is_array($postedDate)
+                ? trim((string)($postedDate['date'] ?? '')) !== ''
+                : is_string($postedDate) && trim($postedDate) !== '';
+            if ($expiresMode === 'date' && !$hasDate) {
+                $errors[] = Craft::t('mailcraft', 'Expires at: pick a date.');
+            } elseif ($hasDate) {
+                $date = DateTimeHelper::toDateTime($postedDate);
+                if ($date === false) {
+                    $errors[] = Craft::t('mailcraft', 'Expires at: not a valid date.');
+                } elseif ($date <= new DateTime()) {
+                    $errors[] = Craft::t('mailcraft', 'Expires at: must be in the future.');
+                } else {
+                    // the channel parses Y-m-d H:i:s in the system time zone
+                    $date->setTimezone(new \DateTimeZone(Craft::$app->getTimeZone()));
+                    $pmDateExpires = $date->format('Y-m-d H:i:s');
+                }
+            }
+
             $settings = [];
             foreach (array_keys($plugin->channelRegistry->getAllowedChannels()) as $handle) {
                 $enabled = in_array($handle, $channels, true);
@@ -339,6 +385,8 @@ class SendController extends Controller
                         'from' => '{{ sender.id ?? "" }}',
                         'type' => is_string($pmType) ? $pmType : '',
                         'pinned' => (bool)$request->getBodyParam('pmPinned'),
+                        'expiresDays' => $pmExpiresDays !== '' && (int)$pmExpiresDays > 0 ? (int)$pmExpiresDays : null,
+                        'dateExpires' => $pmDateExpires,
                     ] + $pmMeta + ['metaLiteral' => true];
                 } else {
                     $settings[$handle] = ['enabled' => $enabled];
@@ -362,6 +410,9 @@ class SendController extends Controller
             'mode' => $mode,
             'errors' => $errors,
             'pmMeta' => $pmMeta,
+            'pmExpiresDays' => $pmExpiresDays,
+            'pmDateExpires' => $pmDateExpires,
+            'pmExpiresMode' => $pmExpiresMode,
         ];
     }
 
@@ -387,6 +438,9 @@ class SendController extends Controller
             'pmType' => (string)$request->getBodyParam('pmType', ''),
             'pmPinned' => (bool)$request->getBodyParam('pmPinned'),
             'pmMeta' => $form['pmMeta'],
+            'pmExpiresDays' => $form['pmExpiresDays'],
+            'pmDateExpires' => $form['pmDateExpires'],
+            'pmExpiresMode' => $form['pmExpiresMode'],
             'channels' => $form['channels'],
             'audience' => $form['audience'],
         ]);

@@ -45,6 +45,7 @@
             this.addListener($('input[name="mode"]'), 'change', 'onModeChange');
             this.addListener($('#templateId'), 'change', 'onTemplateChange');
             this.addListener($('input[name="channels[]"]'), 'change', 'onChannelChange');
+            this.addListener($('#pmExpiresMode'), 'change', 'onExpiresModeChange');
             this.addListener($('#mailcraft-preview-btn'), 'click', 'showPreview');
             this.addListener($('#mailcraft-send-test'), 'click', 'sendTest');
             this.addListener($('.mailcraft-send-cancel'), 'click', 'cancelSend');
@@ -204,7 +205,16 @@
         },
 
         onChannelChange: function () {
-            $('#mailcraft-pm-type, #mailcraft-pm-meta').toggleClass('hidden', !$('#mailcraft-channel-privateMessage').prop('checked'));
+            $('#mailcraft-pm').toggleClass('hidden', !$('#mailcraft-channel-privateMessage').prop('checked'));
+        },
+
+        onExpiresModeChange: function () {
+            var mode = $('#pmExpiresMode').val();
+            $('.mailcraft-pm__expires-days').toggleClass('hidden', mode !== 'days');
+            $('.mailcraft-pm__expires-date').toggleClass('hidden', mode !== 'date');
+            if (mode === 'days') {
+                $('#pmExpiresDays').trigger('focus');
+            }
         },
 
         getCheckedChannelNames: function () {

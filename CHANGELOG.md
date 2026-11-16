@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.8.3 - 2026-11-16
+- Added expiration to admin Send page
+
 ## 1.8.2 - 2026-11-05
 - Labelled meta fields for private messages
 

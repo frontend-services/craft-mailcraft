@@ -68,6 +68,19 @@
         {{ craft.mailCraft.audienceForm(audience, 'audience', { showCount: true })|raw }}
     </div>
 
+    {# --- HOW --- #}
+    <div class="mailcraft-send-section" id="mailcraft-how">
+        <h2>{{ 'How'|t('mailcraft') }}</h2>
+        {{ forms.checkboxGroupField({
+            label: 'Channels'|t('mailcraft'),
+            instructions: 'With a template only its channels can be ticked; what you tick here is what goes out.'|t('mailcraft'),
+            id: 'mailcraft-channels',
+            name: 'channels',
+            options: channelOptions,
+            values: checkedChannels,
+        }) }}
+    </div>
+
     {# --- WHAT --- #}
     <div class="mailcraft-send-section" id="mailcraft-what">
         <h2>{{ 'What'|t('mailcraft') }}</h2>
@@ -136,61 +149,107 @@
             {{ craft.mailCraft.templateEditor(adhocTemplate, 'template', template, 'Message'|t('mailcraft'))|raw }}
 
             {% if 'privateMessage' in channels|keys %}
-                {{ forms.selectField({
-                    label: 'Type'|t('mailcraft'),
-                    instructions: 'The private message type. Only used for private messages.'|t('mailcraft'),
-                    id: 'pmType',
-                    name: 'pmType',
-                    options: typeOptions,
-                    value: pmType,
-                    fieldId: 'mailcraft-pm-type',
-                    fieldClass: 'privateMessage' in checkedChannels ? null : 'hidden',
-                }) }}
-                <div id="mailcraft-pm-meta"{% if 'privateMessage' not in checkedChannels %} class="hidden"{% endif %}>
-                    {{ forms.lightswitchField({
-                        label: 'Pinned'|t('mailcraft'),
-                        instructions: 'Pinned messages stay at the top of the inbox. Only used for private messages.'|t('mailcraft'),
-                        id: 'pmPinned',
-                        name: 'pmPinned',
-                        on: pmPinned,
-                    }) }}
+                {% set pmExpiresMode = pmExpiresMode ?: (pmDateExpires ? 'date' : (pmExpiresDays and pmExpiresDays != '0' ? 'days' : 'never')) %}
+                {% set metaOpen = errors is not empty or pmMeta|filter(v => v is not same as('') and v is not null)|length > 0 %}
+                <fieldset id="mailcraft-pm" class="mailcraft-pm{{ 'privateMessage' not in checkedChannels ? ' hidden' }}">
+                    <legend class="mailcraft-pm__title">{{ 'Private message'|t('mailcraft') }}</legend>
+
+                    <div class="mailcraft-pm__row">
+                        {{ forms.selectField({
+                            label: 'Type'|t('mailcraft'),
+                            instructions: 'The private message type.'|t('mailcraft'),
+                            id: 'pmType',
+                            name: 'pmType',
+                            options: typeOptions,
+                            value: pmType,
+                        }) }}
+
+                        {{ forms.lightswitchField({
+                            label: 'Pinned'|t('mailcraft'),
+                            instructions: 'Stays at the top of the inbox.'|t('mailcraft'),
+                            id: 'pmPinned',
+                            name: 'pmPinned',
+                            on: pmPinned,
+                        }) }}
+
+                        {% set expiresInput %}
+                            <div class="mailcraft-pm__expires">
+                                {{ forms.select({
+                                    id: 'pmExpiresMode',
+                                    name: 'pmExpiresMode',
+                                    options: [
+                                        { label: 'Never'|t('mailcraft'), value: 'never' },
+                                        { label: 'After…'|t('mailcraft'), value: 'days' },
+                                        { label: 'On…'|t('mailcraft'), value: 'date' },
+                                    ],
+                                    value: pmExpiresMode,
+                                }) }}
+                                <div class="mailcraft-pm__expires-days flex flex-nowrap{{ pmExpiresMode != 'days' ? ' hidden' }}">
+                                    {{ forms.text({
+                                        id: 'pmExpiresDays',
+                                        name: 'pmExpiresDays',
+                                        value: pmExpiresDays,
+                                        type: 'number',
+                                        min: 1,
+                                        size: 4,
+                                        class: 'mailcraft-pm__days',
+                                        inputAttributes: { aria: { label: 'Expires after'|t('mailcraft') } },
+                                    }) }}
+                                    <span class="light">{{ 'days'|t('mailcraft') }}</span>
+                                </div>
+                                <div class="mailcraft-pm__expires-date flex flex-nowrap{{ pmExpiresMode != 'date' ? ' hidden' }}">
+                                    {{ forms.date({
+                                        id: 'pmDateExpires-date',
+                                        name: 'pmDateExpires',
+                                        value: pmDateExpires,
+                                    }) }}
+                                    {{ forms.time({
+                                        id: 'pmDateExpires-time',
+                                        name: 'pmDateExpires',
+                                        value: pmDateExpires,
+                                    }) }}
+                                </div>
+                            </div>
+                        {% endset %}
+                        {{ forms.field({
+                            label: 'Expires'|t('mailcraft'),
+                            instructions: 'Removed from the inbox after this.'|t('mailcraft'),
+                            id: 'pmExpiresMode',
+                        }, expiresInput) }}
+                    </div>
+
                     {% if metaFields %}
-                        {% for key, meta in metaFields %}
-                            {% set base = {
-                                label: meta.label,
-                                instructions: meta.instructions,
-                                id: 'pmMeta-' ~ key,
-                                name: 'pmMeta[' ~ key ~ ']',
-                            } %}
-                            {% if meta.type == 'dropdown' %}
-                                {% set options = [{ label: '—', value: '' }] %}
-                                {% for optionValue, optionLabel in meta.options %}
-                                    {% set options = options|merge([{ label: optionLabel, value: optionValue }]) %}
+                        <div class="field mailcraft-pm__more">
+                            <a class="fieldtoggle{{ metaOpen ? ' expanded' }}" data-target="mailcraft-pm-meta" role="button" tabindex="0" aria-expanded="{{ metaOpen ? 'true' : 'false' }}">
+                                {{ 'More fields'|t('mailcraft') }}
+                                <span class="light">({{ metaFields|map(m => m.label)|join(', ') }})</span>
+                            </a>
+                            <div id="mailcraft-pm-meta" class="mailcraft-disclosure mailcraft-pm__meta{{ not metaOpen ? ' hidden' }}">
+                                {% for key, meta in metaFields %}
+                                    {% set base = {
+                                        label: meta.label,
+                                        instructions: meta.instructions,
+                                        id: 'pmMeta-' ~ key,
+                                        name: 'pmMeta[' ~ key ~ ']',
+                                    } %}
+                                    {% if meta.type == 'dropdown' %}
+                                        {% set options = [{ label: '—', value: '' }] %}
+                                        {% for optionValue, optionLabel in meta.options %}
+                                            {% set options = options|merge([{ label: optionLabel, value: optionValue }]) %}
+                                        {% endfor %}
+                                        {{ forms.selectField(base|merge({ options: options, value: pmMeta[key] ?? '' })) }}
+                                    {% elseif meta.type == 'checkbox' %}
+                                        {{ forms.lightswitchField(base|merge({ on: (pmMeta[key] ?? '') == '1' })) }}
+                                    {% else %}
+                                        {{ forms.textField(base|merge({ value: pmMeta[key] ?? '', maxlength: 255 })) }}
+                                    {% endif %}
                                 {% endfor %}
-                                {{ forms.selectField(base|merge({ options: options, value: pmMeta[key] ?? '' })) }}
-                            {% elseif meta.type == 'checkbox' %}
-                                {{ forms.lightswitchField(base|merge({ on: (pmMeta[key] ?? '') == '1' })) }}
-                            {% else %}
-                                {{ forms.textField(base|merge({ value: pmMeta[key] ?? '', maxlength: 255 })) }}
-                            {% endif %}
-                        {% endfor %}
+                            </div>
+                        </div>
                     {% endif %}
-                </div>
+                </fieldset>
             {% endif %}
         </div>
-    </div>
-
-    {# --- HOW --- #}
-    <div class="mailcraft-send-section" id="mailcraft-how">
-        <h2>{{ 'How'|t('mailcraft') }}</h2>
-        {{ forms.checkboxGroupField({
-            label: 'Channels'|t('mailcraft'),
-            instructions: 'With a template only its channels can be ticked; what you tick here is what goes out.'|t('mailcraft'),
-            id: 'mailcraft-channels',
-            name: 'channels',
-            options: channelOptions,
-            values: checkedChannels,
-        }) }}
     </div>
 
     {# --- Actions --- #}

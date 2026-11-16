@@ -334,6 +334,71 @@
     gap: 0 16px;
 }
 
+/* Private message options: one compact panel */
+.mailcraft-pm {
+    margin: 24px 0 0;
+    padding: 14px 18px 4px;
+    border: 1px solid var(--gray-200, #e3e5e8);
+    border-radius: var(--large-border-radius, 5px);
+    background: var(--gray-050, #f3f7fc);
+}
+
+.mailcraft-pm__title {
+    padding: 0 6px;
+    margin-left: -6px;
+    font-weight: bold;
+    color: var(--gray-700, #3f4d5a);
+}
+
+.mailcraft-pm__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0 40px;
+}
+
+.mailcraft-pm__row > .field,
+.mailcraft-pm .field {
+    margin-top: 0 !important;
+    margin-bottom: 14px !important;
+}
+
+.mailcraft-pm__row .instructions {
+    max-width: 220px;
+}
+
+.mailcraft-pm__expires {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.mailcraft-pm__expires-days,
+.mailcraft-pm__expires-date {
+    gap: 8px;
+    align-items: center;
+}
+
+.mailcraft-pm__days {
+    width: 5rem !important;
+}
+
+.mailcraft-pm__more > .fieldtoggle .light {
+    margin-left: 4px;
+}
+
+.mailcraft-pm__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0 32px;
+    margin-top: 12px;
+}
+
+.mailcraft-pm__meta.hidden {
+    display: none;
+}
+
 #mailcraft-channels input:disabled + label {
     opacity: 0.5;
 }
