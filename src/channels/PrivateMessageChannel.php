@@ -17,7 +17,8 @@ use Twig\Error\SyntaxError;
  * Writes a template into the recipients' private message inboxes (`mailcraft_messages`).
  *
  * Its per-template settings live in `channels['privateMessage']`: `to`, `from`, `type`,
- * `pinned`, `expiresDays`, `dateExpires`, `meta1`...`meta5` and `data`. The text settings are
+ * `pinned`, `expiresDays`, `dateExpires`, `meta1`...`meta5`, `data` and `dataFields` (values of the
+ * `additionalDataFields` setting, merged into `data`). The text settings are
  * admin-written Twig rendered against the event variables.
  */
 class PrivateMessageChannel extends AbstractChannel
@@ -310,12 +311,27 @@ class PrivateMessageChannel extends AbstractChannel
             $payload['meta' . $i] = $meta !== '' ? mb_substr($meta, 0, 255) : null;
         }
 
-        $payload['data'] = null;
+        $payload['data'] = $this->renderData($template, $variables);
+
+        $payload['siteId'] = $this->currentSiteId();
+        $payload['templateId'] = $template->id ? (int)$template->id : null;
+
+        return $payload;
+    }
+
+    /**
+     * The message `data` array of a template: its `data` JSON, with the values of the described
+     * `dataFields` on top. Text is Twig; a dropdown or checkbox value is written as is, a ticked
+     * checkbox as '1'. Empty values are left out.
+     */
+    public function renderData(EmailTemplate $template, array $variables): ?array
+    {
+        $data = null;
         $renderedData = trim((string)$this->render($this->setting($template, 'data'), $variables));
         if ($renderedData !== '') {
             $decoded = Json::decodeIfJson($renderedData);
             if (is_array($decoded)) {
-                $payload['data'] = $decoded;
+                $data = $decoded;
             } else {
                 Craft::warning(sprintf(
                     'MailCraft: data of template "%s" (#%s) did not render to JSON; ignored.',
@@ -325,10 +341,26 @@ class PrivateMessageChannel extends AbstractChannel
             }
         }
 
-        $payload['siteId'] = $this->currentSiteId();
-        $payload['templateId'] = $template->id ? (int)$template->id : null;
+        $settings = MailCraft::getInstance()->getSettings();
+        $described = $settings->getAdditionalDataFields();
+        $dataFields = $this->setting($template, 'dataFields');
+        foreach (is_array($dataFields) ? $dataFields : [] as $key => $raw) {
+            $key = (string)$key;
+            if (!is_scalar($raw) || (string)$raw === '') {
+                continue;
+            }
+            $raw = (string)$raw;
+            $type = $described[$key]['type'] ?? 'text';
+            $value = $type !== 'text' && $settings->dataValueFits($key, $raw)
+                ? $raw
+                : trim((string)$this->render($raw, $variables));
+            if ($value !== '') {
+                $data ??= [];
+                $data[$key] = $value;
+            }
+        }
 
-        return $payload;
+        return $data;
     }
 
     /**

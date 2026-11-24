@@ -1,5 +1,8 @@
 # Release Notes for MailCraft
 
+## 1.8.5 - 2026-11-24
+- Additional data fields for private messages
+
 ## 1.8.4 - 2026-11-16
 - Add option to render twig in subject and content in PrivateMessaging::send()
 

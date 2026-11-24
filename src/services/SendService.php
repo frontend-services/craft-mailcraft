@@ -112,18 +112,39 @@ class SendService extends Component
      */
     public function metaFromPost(mixed $posted): array
     {
+        return $this->fieldsFromPost($posted, MailCraft::getInstance()->getSettings()->getPrivateMessageMeta(), 255);
+    }
+
+    /**
+     * Reads the Send page's `pmData[key]` input against the `additionalDataFields` setting.
+     * Text values are kept as written: they are Twig, rendered per recipient by the channel.
+     */
+    public function dataFromPost(mixed $posted): array
+    {
+        return $this->fieldsFromPost($posted, MailCraft::getInstance()->getSettings()->getAdditionalDataFields());
+    }
+
+    /**
+     * Reads posted values against described fields.
+     *
+     * @param array $fields key => ['label', 'type', 'options']
+     * @param int|null $maxLength cut text values to this length
+     * @return array{values: array<string,string>, errors: string[]}
+     */
+    private function fieldsFromPost(mixed $posted, array $fields, ?int $maxLength = null): array
+    {
         $posted = is_array($posted) ? $posted : [];
         $values = [];
         $errors = [];
 
-        foreach (MailCraft::getInstance()->getSettings()->getPrivateMessageMeta() as $key => $meta) {
+        foreach ($fields as $key => $field) {
             $raw = $posted[$key] ?? '';
             $raw = is_scalar($raw) ? (string)$raw : '';
 
-            switch ($meta['type']) {
+            switch ($field['type']) {
                 case 'dropdown':
-                    if ($raw !== '' && !array_key_exists($raw, $meta['options'])) {
-                        $errors[] = Craft::t('mailcraft', '{label}: pick one of the configured values.', ['label' => $meta['label']]);
+                    if ($raw !== '' && !array_key_exists($raw, $field['options'])) {
+                        $errors[] = Craft::t('mailcraft', '{label}: pick one of the configured values.', ['label' => $field['label']]);
                         continue 2;
                     }
                     $values[$key] = $raw;
@@ -132,7 +153,8 @@ class SendService extends Component
                     $values[$key] = filter_var($raw, FILTER_VALIDATE_BOOLEAN) ? '1' : '';
                     break;
                 default:
-                    $values[$key] = mb_substr(trim($raw), 0, 255);
+                    $raw = trim($raw);
+                    $values[$key] = $maxLength !== null ? mb_substr($raw, 0, $maxLength) : $raw;
             }
         }
 

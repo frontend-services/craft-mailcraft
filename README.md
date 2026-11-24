@@ -25,6 +25,7 @@ panel - no developer assistance required. Install once, and let your clients han
 - **Multiple channels**: Send notifications to multiple channels; easily get new private message notification to your email
 - **Export & Import**: Easily move your notifications between environments, Craft Cloud included
 - **[Send notifications from admin](./send-notifications-from-admin.md)**: Send messages to a group of users the control panel
+- **[Config file support](./src/config.php)**: Set up all plugin parameters through the config php file.
 
 ## Event Triggers & Notification Types
 

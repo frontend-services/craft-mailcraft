@@ -3,7 +3,9 @@
 {% set pluginSettings = craft.app.plugins.getPlugin('mailcraft').getSettings() %}
 {% set messageTypes = pluginSettings.getPrivateMessageTypes() %}
 {% set metaFields = pluginSettings.getPrivateMessageMeta() %}
-{% set showAdvanced = (settings.meta1 ?? false) or (settings.meta2 ?? false) or (settings.meta3 ?? false) or (settings.meta4 ?? false) or (settings.meta5 ?? false) or (settings.data ?? false) or (settings.dateExpires ?? false) %}
+{% set dataFields = pluginSettings.getAdditionalDataFields() %}
+{% set dataValues = settings.dataFields ?? {} %}
+{% set showAdvanced = (settings.meta1 ?? false) or (settings.meta2 ?? false) or (settings.meta3 ?? false) or (settings.meta4 ?? false) or (settings.meta5 ?? false) or (settings.data ?? false) or (dataValues|filter(v => v is not same as('') and v is not null)|length > 0) or (settings.dateExpires ?? false) %}
 
 {% set toInput %}
     {{ forms.text({
@@ -133,6 +135,39 @@
                     value: value,
                     class: 'code',
                     maxlength: 255,
+                    fieldClass: 'width-50',
+                })) }}
+            {% endif %}
+        {% endfor %}
+        {% for key, field in dataFields %}
+            {% set value = dataValues[key] ?? '' %}
+            {% set fits = pluginSettings.dataValueFits(key, value) %}
+            {% set base = {
+                label: field.label,
+                instructions: field.instructions,
+                id: 'channels-privateMessage-dataFields-' ~ key,
+                name: 'channels[privateMessage][dataFields][' ~ key ~ ']',
+            } %}
+            {% if field.type == 'dropdown' and fits %}
+                {% set options = [{ label: '—', value: '' }] %}
+                {% for optionValue, optionLabel in field.options %}
+                    {% set options = options|merge([{ label: optionLabel, value: optionValue }]) %}
+                {% endfor %}
+                {{ forms.selectField(base|merge({
+                    options: options,
+                    value: value,
+                    fieldClass: 'width-50',
+                })) }}
+            {% elseif field.type == 'checkbox' and fits %}
+                {{ forms.lightswitchField(base|merge({
+                    on: value == '1',
+                })) }}
+            {% else %}
+                {% set typeLabel = field.type == 'checkbox' ? 'checkbox'|t('mailcraft') : 'dropdown'|t('mailcraft') %}
+                {{ forms.textField(base|merge({
+                    warning: field.type != 'text' ? 'Configured as a {type}. Clear this value to get the {type}, or keep it if the Twig is intentional.'|t('mailcraft', { type: typeLabel }) : null,
+                    value: value,
+                    class: 'code',
                     fieldClass: 'width-50',
                 })) }}
             {% endif %}

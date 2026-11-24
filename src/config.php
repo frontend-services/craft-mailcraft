@@ -36,7 +36,7 @@ return [
     // The built-in channels need none; used by custom channels (e.g. a webhook URL).
     'channelSettings' => [],
 
-    // Channels whose sends are recorded on the Status page, e.g. ['email'],
+    // Channels whose sends are recorded on the Status page, e.g. ['email', 'privateMessage'],
     // or ['*'] for every channel. Empty = nothing is recorded.
     'statusChannels' => [],
 
@@ -51,7 +51,8 @@ return [
     // 'privateMessageTypes' => ['User message' => 'user', 'System message' => 'system', 'Info' => 'info'],
 
     // Describe the message `meta1` ... `meta5` columns so the Send page and the template editor
-    // show them as labelled fields. `type` is text (default), dropdown or checkbox.
+    // show them as labelled fields. `type` is text (default), dropdown or checkbox. These columns
+    // are indexed in the database for fast queries, e.g. `.meta(1, 'blue')`.
     'privateMessageMeta' => [],
     // 'privateMessageMeta' => [
     //     'meta1' => ['label' => 'Color', 'type' => 'dropdown', 'values' => ['Blue' => 'blue', 'Red' => 'red']],
@@ -71,4 +72,16 @@ return [
 
     // Type written on messages sent through the frontend action (null = no type)
     'frontendSendingType' => 'user',
+
+    // Extra fields written into the message `data` array, keyed by the data key. They show up
+    // next to the meta fields on the Send page and in the template editor. Text fields may 
+    // contain Twig, e.g. `/orders/{{ recipient.id }}`. A ticked checkbox is stored as '1'.
+    // Unlike meta columns they are not indexed, so they can't be used to filter messages.
+    // On the frontend: {{ message.data.url ?? '' }}, {% if (message.data.important ?? '') == '1' %}
+    'additionalDataFields' => [],
+    // 'additionalDataFields' => [
+    //     'url' => ['label' => 'Url', 'type' => 'text', 'instructions' => 'Where the message links to.'],
+    //     'priority' => ['label' => 'Priority', 'type' => 'dropdown', 'values' => ['Low' => 'low', 'High' => 'high']],
+    //     'important' => ['label' => 'Important', 'type' => 'checkbox'],
+    // ],
 ];

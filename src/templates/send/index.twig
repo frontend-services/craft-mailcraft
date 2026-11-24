@@ -150,7 +150,14 @@
 
             {% if 'privateMessage' in channels|keys %}
                 {% set pmExpiresMode = pmExpiresMode ?: (pmDateExpires ? 'date' : (pmExpiresDays and pmExpiresDays != '0' ? 'days' : 'never')) %}
-                {% set metaOpen = errors is not empty or pmMeta|filter(v => v is not same as('') and v is not null)|length > 0 %}
+                {% set metaOpen = errors is not empty or pmMeta|merge(pmData)|filter(v => v is not same as('') and v is not null)|length > 0 %}
+                {% set moreFields = [] %}
+                {% for key, meta in metaFields %}
+                    {% set moreFields = moreFields|merge([meta|merge({ id: 'pmMeta-' ~ key, name: 'pmMeta[' ~ key ~ ']', value: pmMeta[key] ?? '', maxlength: 255 })]) %}
+                {% endfor %}
+                {% for key, field in dataFields %}
+                    {% set moreFields = moreFields|merge([field|merge({ id: 'pmData-' ~ key, name: 'pmData[' ~ key ~ ']', value: pmData[key] ?? '', maxlength: null })]) %}
+                {% endfor %}
                 <fieldset id="mailcraft-pm" class="mailcraft-pm{{ 'privateMessage' not in checkedChannels ? ' hidden' }}">
                     <legend class="mailcraft-pm__title">{{ 'Private message'|t('mailcraft') }}</legend>
 
@@ -218,30 +225,30 @@
                         }, expiresInput) }}
                     </div>
 
-                    {% if metaFields %}
+                    {% if moreFields %}
                         <div class="field mailcraft-pm__more">
                             <a class="fieldtoggle{{ metaOpen ? ' expanded' }}" data-target="mailcraft-pm-meta" role="button" tabindex="0" aria-expanded="{{ metaOpen ? 'true' : 'false' }}">
                                 {{ 'More fields'|t('mailcraft') }}
-                                <span class="light">({{ metaFields|map(m => m.label)|join(', ') }})</span>
+                                <span class="light">({{ moreFields|map(m => m.label)|join(', ') }})</span>
                             </a>
                             <div id="mailcraft-pm-meta" class="mailcraft-disclosure mailcraft-pm__meta{{ not metaOpen ? ' hidden' }}">
-                                {% for key, meta in metaFields %}
+                                {% for meta in moreFields %}
                                     {% set base = {
                                         label: meta.label,
                                         instructions: meta.instructions,
-                                        id: 'pmMeta-' ~ key,
-                                        name: 'pmMeta[' ~ key ~ ']',
+                                        id: meta.id,
+                                        name: meta.name,
                                     } %}
                                     {% if meta.type == 'dropdown' %}
                                         {% set options = [{ label: '—', value: '' }] %}
                                         {% for optionValue, optionLabel in meta.options %}
                                             {% set options = options|merge([{ label: optionLabel, value: optionValue }]) %}
                                         {% endfor %}
-                                        {{ forms.selectField(base|merge({ options: options, value: pmMeta[key] ?? '' })) }}
+                                        {{ forms.selectField(base|merge({ options: options, value: meta.value })) }}
                                     {% elseif meta.type == 'checkbox' %}
-                                        {{ forms.lightswitchField(base|merge({ on: (pmMeta[key] ?? '') == '1' })) }}
+                                        {{ forms.lightswitchField(base|merge({ on: meta.value == '1' })) }}
                                     {% else %}
-                                        {{ forms.textField(base|merge({ value: pmMeta[key] ?? '', maxlength: 255 })) }}
+                                        {{ forms.textField(base|merge({ value: meta.value, maxlength: meta.maxlength })) }}
                                     {% endif %}
                                 {% endfor %}
                             </div>

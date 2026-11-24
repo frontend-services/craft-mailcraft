@@ -7,6 +7,7 @@ use craft\helpers\DateTimeHelper;
 use craft\helpers\UrlHelper;
 use craft\elements\User;
 use craft\web\Controller;
+use frontendservices\mailcraft\channels\PrivateMessageChannel;
 use frontendservices\mailcraft\elements\EmailTemplate;
 use frontendservices\mailcraft\helpers\PreviewHelper;
 use frontendservices\mailcraft\MailCraft;
@@ -107,12 +108,14 @@ class SendController extends Controller
                 : (string)(array_key_first($plugin->getSettings()->getPrivateMessageTypes()) ?? ''),
             'pmPinned' => !empty($form['pmPinned']),
             'pmMeta' => (array)($form['pmMeta'] ?? []),
+            'pmData' => (array)($form['pmData'] ?? []),
             'pmExpiresDays' => (string)($form['pmExpiresDays'] ?? ''),
             'pmExpiresMode' => (string)($form['pmExpiresMode'] ?? ''),
             'pmDateExpires' => !empty($form['pmDateExpires'])
                 ? (DateTime::createFromFormat('Y-m-d H:i:s', (string)$form['pmDateExpires']) ?: null)
                 : null,
             'metaFields' => $plugin->getSettings()->getPrivateMessageMeta(),
+            'dataFields' => $plugin->getSettings()->getAdditionalDataFields(),
             'checkedChannels' => $checkedChannels,
             'adhocTemplate' => new EmailTemplate(),
         ]);
@@ -237,10 +240,19 @@ class SendController extends Controller
         try {
             $content = $emailService->renderContentFor($template, $channel, $sampleData);
 
+            $dataTable = '';
+            $pm = MailCraft::getInstance()->channelRegistry->getChannels()[PrivateMessageChannel::HANDLE] ?? null;
+            if ($pm instanceof PrivateMessageChannel && in_array(PrivateMessageChannel::HANDLE, $form['channels'], true)) {
+                $dataTable = PreviewHelper::dataTable(
+                    $pm->renderData($template, $sampleData) ?? [],
+                    MailCraft::getInstance()->getSettings()->getAdditionalDataFields()
+                );
+            }
+
             return $this->asJson([
                 'success' => true,
                 'subject' => $content['subject'],
-                'html' => PreviewHelper::wrap($content['body']),
+                'html' => PreviewHelper::wrap($content['body'], $dataTable),
             ]);
         } catch (Throwable $e) {
             return $this->asJson(['success' => false, 'error' => $e->getMessage()]);
@@ -304,7 +316,7 @@ class SendController extends Controller
     /**
      * The template, channels, audience and mode posted by the page.
      *
-     * @return array{template: ?EmailTemplate, channels: string[], audience: array, mode: string, errors: string[], pmMeta: array, pmExpiresDays: string, pmDateExpires: string, pmExpiresMode: string}
+     * @return array{template: ?EmailTemplate, channels: string[], audience: array, mode: string, errors: string[], pmMeta: array, pmData: array, pmExpiresDays: string, pmDateExpires: string, pmExpiresMode: string}
      */
     private function fromRequest(): array
     {
@@ -328,6 +340,7 @@ class SendController extends Controller
 
         $errors = [];
         $pmMeta = [];
+        $pmData = [];
         $pmExpiresDays = '';
         $pmDateExpires = '';
         $pmExpiresMode = '';
@@ -340,7 +353,9 @@ class SendController extends Controller
             $pmType = $request->getBodyParam('pmType');
             $meta = $plugin->sends->metaFromPost($request->getBodyParam('pmMeta'));
             $pmMeta = $meta['values'];
-            $errors = $meta['errors'];
+            $data = $plugin->sends->dataFromPost($request->getBodyParam('pmData'));
+            $pmData = $data['values'];
+            $errors = array_merge($meta['errors'], $data['errors']);
 
             $expiresMode = $request->getBodyParam('pmExpiresMode');
             $expiresMode = in_array($expiresMode, ['never', 'days', 'date'], true) ? $expiresMode : null;
@@ -387,6 +402,7 @@ class SendController extends Controller
                         'pinned' => (bool)$request->getBodyParam('pmPinned'),
                         'expiresDays' => $pmExpiresDays !== '' && (int)$pmExpiresDays > 0 ? (int)$pmExpiresDays : null,
                         'dateExpires' => $pmDateExpires,
+                        'dataFields' => $pmData,
                     ] + $pmMeta + ['metaLiteral' => true];
                 } else {
                     $settings[$handle] = ['enabled' => $enabled];
@@ -410,6 +426,7 @@ class SendController extends Controller
             'mode' => $mode,
             'errors' => $errors,
             'pmMeta' => $pmMeta,
+            'pmData' => $pmData,
             'pmExpiresDays' => $pmExpiresDays,
             'pmDateExpires' => $pmDateExpires,
             'pmExpiresMode' => $pmExpiresMode,
@@ -438,6 +455,7 @@ class SendController extends Controller
             'pmType' => (string)$request->getBodyParam('pmType', ''),
             'pmPinned' => (bool)$request->getBodyParam('pmPinned'),
             'pmMeta' => $form['pmMeta'],
+            'pmData' => $form['pmData'],
             'pmExpiresDays' => $form['pmExpiresDays'],
             'pmDateExpires' => $form['pmDateExpires'],
             'pmExpiresMode' => $form['pmExpiresMode'],

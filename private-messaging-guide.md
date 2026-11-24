@@ -65,6 +65,20 @@ What is stored:
 
 **Templates.** `message.metaLabel(1)` returns the dropdown label of the stored value (`Blue` for `blue`), or the raw value for other columns, or `''` when empty. `craft.mailCraft.getPrivateMessageMeta()` returns the descriptions keyed `meta1` ... `meta5`, each with `label`, `type`, `options` (value => label) and `instructions`, so you can build a filter bar from them. `MailCraft::send()` keeps accepting raw `meta1` ... `meta5` strings and does not validate them against the config.
 
+### Data fields
+
+`additionalDataFields` describes extra fields the same way, but their values go into the message `data` array instead of a meta column:
+
+```php
+'additionalDataFields' => [
+    'url' => ['label' => 'Url', 'type' => 'text'],
+    'priority' => ['label' => 'Priority', 'type' => 'dropdown', 'values' => ['Low' => 'low', 'Medium' => 'medium', 'High' => 'high']],
+    'important' => ['label' => 'Important', 'type' => 'checkbox'],
+],
+```
+
+They appear in the same group as the meta fields on the Send page and in the template editor. Text fields are Twig on both pages (`/orders/{{ recipient.id }}`), rendered per recipient. A ticked checkbox is stored as `true`, empty fields are left out, and a field overrides the same key of the template's "Data" JSON. They are not indexed, so they cannot be filtered on. Read them with `{{ message.data.url ?? '' }}`.
+
 ## 4. A template with the channel enabled on a normal event (optional)
 
 Create an email template, pick its event, and enable the Private message channel tab. Use the quick picks for the fields:

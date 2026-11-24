@@ -68,6 +68,13 @@ class Settings extends Model
     public array $privateMessageMeta = [];
 
     /**
+     * @var array Descriptions of extra fields written into the message `data` array, keyed by data key:
+     * `['url' => ['label' => 'Url', 'type' => 'text', 'values' => [...], 'instructions' => '']]`.
+     * Same shape as `privateMessageMeta`; the label defaults to the key. Config file only.
+     */
+    public array $additionalDataFields = [];
+
+    /**
      * @var mixed Template used by the `send()` facade (id or handle); null means the built-in simple message.
      */
     public mixed $privateMessageTemplate = null;
@@ -120,6 +127,10 @@ class Settings extends Model
 
         if (is_array($values) && array_key_exists('privateMessageMeta', $values)) {
             $values['privateMessageMeta'] = $this->normalizeMeta($values['privateMessageMeta']);
+        }
+
+        if (is_array($values) && array_key_exists('additionalDataFields', $values)) {
+            $values['additionalDataFields'] = $this->normalizeDataFields($values['additionalDataFields']);
         }
 
         if (is_array($values) && array_key_exists('privateMessageTemplate', $values)) {
@@ -203,19 +214,43 @@ class Settings extends Model
      */
     public function metaValueFits(int $n, mixed $value): bool
     {
-        $meta = $this->getPrivateMessageMetaFor($n);
-        if ($meta === null || $value === null || $value === '') {
+        return $this->valueFits($this->getPrivateMessageMetaFor($n), $value);
+    }
+
+    /**
+     * Whether a value can be shown in the input of a described field.
+     */
+    private function valueFits(?array $field, mixed $value): bool
+    {
+        if ($field === null || $value === null || $value === '') {
             return true;
         }
         if (!is_scalar($value)) {
             return false;
         }
 
-        return match ($meta['type']) {
-            'dropdown' => array_key_exists((string)$value, $meta['options']),
+        return match ($field['type']) {
+            'dropdown' => array_key_exists((string)$value, $field['options']),
             'checkbox' => (string)$value === '1',
             default => true,
         };
+    }
+
+    /**
+     * The described `data` fields, keyed by data key in config order. Each entry has the shape
+     * of a getPrivateMessageMeta() entry.
+     */
+    public function getAdditionalDataFields(): array
+    {
+        return $this->normalizeDataFields($this->additionalDataFields);
+    }
+
+    /**
+     * Whether a stored value can be shown in the data field's configured input.
+     */
+    public function dataValueFits(string $key, mixed $value): bool
+    {
+        return $this->valueFits($this->getAdditionalDataFields()[$key] ?? null, $value);
     }
 
     /**
@@ -302,44 +337,95 @@ class Settings extends Model
                 continue;
             }
 
-            $label = is_scalar($entry['label'] ?? null) ? trim((string)$entry['label']) : '';
-            if ($label === '') {
-                continue;
+            $field = $this->describeField($entry, 'privateMessageMeta.' . $key);
+            if ($field !== null) {
+                $meta[$key] = $field;
             }
-
-            $type = is_scalar($entry['type'] ?? null) ? strtolower(trim((string)$entry['type'])) : 'text';
-            if ($type === '') {
-                $type = 'text';
-            }
-            if (!in_array($type, ['text', 'dropdown', 'checkbox'], true)) {
-                Craft::warning(sprintf('MailCraft: privateMessageMeta.%s has an unknown type "%s"; using text.', $key, $type), __METHOD__);
-                $type = 'text';
-            }
-
-            $options = [];
-            if ($type === 'dropdown') {
-                // the normalised shape stores options as value => label, raw config as label => value
-                $source = $entry['options'] ?? $entry['values'] ?? [];
-                if (array_key_exists('options', $entry) && is_array($source)) {
-                    $options = array_map('strval', array_filter($source, 'is_scalar'));
-                } else {
-                    $options = array_flip($this->normalizeTypes($source));
-                }
-                if ($options === []) {
-                    Craft::warning(sprintf('MailCraft: privateMessageMeta.%s is a dropdown without values; using text.', $key), __METHOD__);
-                    $type = 'text';
-                }
-            }
-
-            $meta[$key] = [
-                'label' => $label,
-                'type' => $type,
-                'options' => $options,
-                'instructions' => is_scalar($entry['instructions'] ?? null) ? trim((string)$entry['instructions']) : '',
-            ];
         }
 
         return $meta;
+    }
+
+    /**
+     * Normalises `additionalDataFields`. A key that is not made of letters, digits, `_` or `-`
+     * is skipped; a plain list (`['url', 'ref']`) gives text fields labelled by their key.
+     */
+    private function normalizeDataFields(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $fields = [];
+        foreach ($value as $key => $entry) {
+            if (is_int($key) && is_string($entry)) {
+                $key = $entry;
+                $entry = [];
+            } elseif (is_string($entry)) {
+                $entry = ['label' => $entry];
+            }
+            $key = (string)$key;
+            if (!is_array($entry)) {
+                continue;
+            }
+            if (preg_match('/^[A-Za-z0-9_-]+$/', $key) !== 1) {
+                Craft::warning(sprintf('MailCraft: additionalDataFields key "%s" may only contain letters, digits, "_" and "-"; skipped.', $key), __METHOD__);
+                continue;
+            }
+
+            $field = $this->describeField($entry, 'additionalDataFields.' . $key, $key);
+            if ($field !== null) {
+                $fields[$key] = $field;
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Normalises one field description to `['label', 'type', 'options' (value => label), 'instructions']`.
+     * Null when it has no label and no default is given.
+     */
+    private function describeField(array $entry, string $path, string $defaultLabel = ''): ?array
+    {
+        $label = is_scalar($entry['label'] ?? null) ? trim((string)$entry['label']) : '';
+        if ($label === '') {
+            $label = $defaultLabel;
+        }
+        if ($label === '') {
+            return null;
+        }
+
+        $type = is_scalar($entry['type'] ?? null) ? strtolower(trim((string)$entry['type'])) : 'text';
+        if ($type === '') {
+            $type = 'text';
+        }
+        if (!in_array($type, ['text', 'dropdown', 'checkbox'], true)) {
+            Craft::warning(sprintf('MailCraft: %s has an unknown type "%s"; using text.', $path, $type), __METHOD__);
+            $type = 'text';
+        }
+
+        $options = [];
+        if ($type === 'dropdown') {
+            // the normalised shape stores options as value => label, raw config as label => value
+            $source = $entry['options'] ?? $entry['values'] ?? [];
+            if (array_key_exists('options', $entry) && is_array($source)) {
+                $options = array_map('strval', array_filter($source, 'is_scalar'));
+            } else {
+                $options = array_flip($this->normalizeTypes($source));
+            }
+            if ($options === []) {
+                Craft::warning(sprintf('MailCraft: %s is a dropdown without values; using text.', $path), __METHOD__);
+                $type = 'text';
+            }
+        }
+
+        return [
+            'label' => $label,
+            'type' => $type,
+            'options' => $options,
+            'instructions' => is_scalar($entry['instructions'] ?? null) ? trim((string)$entry['instructions']) : '',
+        ];
     }
 
     public function validateAllowedChannels(): void
@@ -401,6 +487,7 @@ class Settings extends Model
             ['statusRetentionDays', 'default', 'value' => 30],
             ['privateMessageTemplate', 'safe'],
             ['privateMessageMeta', 'safe'],
+            ['additionalDataFields', 'safe'],
             ['allowFrontendSending', 'boolean'],
             ['frontendSendingPerHour', 'integer', 'min' => 0],
             ['frontendSendingPerHour', 'default', 'value' => 30],
