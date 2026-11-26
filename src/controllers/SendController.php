@@ -71,6 +71,11 @@ class SendController extends Controller
         $form = Craft::$app->getSession()->getFlash(self::FORM_FLASH, null, true);
         $form = is_array($form) ? $form : null;
 
+        $reuseId = (int)$this->request->getQueryParam('reuse');
+        if ($form === null && $reuseId > 0) {
+            $form = $this->formFromSend($reuseId, array_column($templates, 'channels', 'id'), array_keys($channels));
+        }
+
         $templateId = (int)($form['templateId'] ?? $this->request->getQueryParam('templateId'));
         $selected = null;
         foreach ($templates as $row) {
@@ -431,6 +436,71 @@ class SendController extends Controller
             'pmDateExpires' => $pmDateExpires,
             'pmExpiresMode' => $pmExpiresMode,
         ];
+    }
+
+    /**
+     * The page's form filled from an earlier send, in the shape failWith() flashes.
+     *
+     * @param array<int, string[]> $templates Selectable template ids with their channels
+     * @param string[] $allowed Allowed channel handles
+     */
+    private function formFromSend(int $id, array $templates, array $allowed): array
+    {
+        $plugin = MailCraft::getInstance();
+        $send = $plugin->sends->getById($id);
+        if ($send === null) {
+            return ['mode' => 'custom', 'errors' => [Craft::t('mailcraft', 'That send no longer exists.')]];
+        }
+
+        $form = [
+            'errors' => [],
+            'mode' => 'custom',
+            'audience' => $send->audience,
+            'channels' => array_values(array_intersect($send->channels, $allowed)),
+        ];
+
+        $snapshot = $send->templateSnapshot;
+        if ($send->templateId === null && $snapshot !== null) {
+            // written on the page: the snapshot is the message
+            $pm = $snapshot['channels'][PrivateMessageChannel::HANDLE] ?? [];
+            $pm = is_array($pm) ? $pm : [];
+            $strings = static fn(array $values): array => array_map('strval', array_filter($values, 'is_scalar'));
+
+            $form['subject'] = (string)($snapshot['subject'] ?? '');
+            $form['template'] = (string)($snapshot['template'] ?? '');
+            $form['pmType'] = is_scalar($pm['type'] ?? null) ? (string)$pm['type'] : '';
+            $form['pmPinned'] = !empty($pm['pinned']);
+            $form['pmMeta'] = $strings(array_intersect_key($pm, $plugin->getSettings()->getPrivateMessageMeta()));
+            $form['pmData'] = $strings(array_intersect_key(
+                is_array($pm['dataFields'] ?? null) ? $pm['dataFields'] : [],
+                $plugin->getSettings()->getAdditionalDataFields()
+            ));
+
+            // a fixed expiry date that has passed is dropped
+            $date = is_string($pm['dateExpires'] ?? null) && $pm['dateExpires'] !== ''
+                ? DateTime::createFromFormat('Y-m-d H:i:s', $pm['dateExpires'])
+                : false;
+            $days = (int)($pm['expiresDays'] ?? 0);
+            if ($date !== false && $date > new DateTime()) {
+                $form['pmExpiresMode'] = 'date';
+                $form['pmDateExpires'] = $pm['dateExpires'];
+            } elseif ($days > 0) {
+                $form['pmExpiresMode'] = 'days';
+                $form['pmExpiresDays'] = (string)$days;
+            } else {
+                $form['pmExpiresMode'] = 'never';
+            }
+        } elseif ($send->templateId !== null && isset($templates[$send->templateId])) {
+            $form['mode'] = 'template';
+            $form['templateId'] = $send->templateId;
+            $form['channels'] = array_values(array_intersect($form['channels'], $templates[$send->templateId]));
+        } else {
+            $form['errors'][] = Craft::t('mailcraft', 'The template "{title}" of that send is no longer available. Pick another template or write the message here.', [
+                'title' => (string)$send->templateTitle,
+            ]);
+        }
+
+        return $form;
     }
 
     /**

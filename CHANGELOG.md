@@ -1,5 +1,9 @@
 # Release Notes for MailCraft
 
+## 1.8.6 - 2026-11-26
+- Reuse already sent private messages
+- Minor send layout change
+
 ## 1.8.5 - 2026-11-24
 - Additional data fields for private messages
 
